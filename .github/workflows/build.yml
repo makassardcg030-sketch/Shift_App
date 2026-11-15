@@ -36,7 +36,7 @@ jobs:
       - name: Install Buildozer
         run: |
           pip install --upgrade pip
-          pip install "buildozer==1.6.0" "setuptools<81" virtualenv "cython==3.0.11"
+          pip install "buildozer==1.6.0" "setuptools<81" virtualenv "cython<3.0"
 
       # python-for-android dipasang dari tag resmi, lalu receiver widget disisipkan
       # ke template AndroidManifest-nya (tidak ada opsi bawaan untuk ini).
