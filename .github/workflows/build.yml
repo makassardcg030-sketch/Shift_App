@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
@@ -28,27 +29,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            git \
-            ant \
-            autoconf \
-            automake \
-            libtool \
-            libltdl-dev \
-            pkg-config \
-            cmake \
-            libncurses-dev \
-            libffi-dev \
-            libssl-dev \
-            zlib1g-dev \
-            openjdk-17-jdk \
-            unzip \
-            zip
+            build-essential git autoconf automake libtool libltdl-dev \
+            pkg-config cmake libncurses-dev libffi-dev libssl-dev \
+            zlib1g-dev unzip zip
 
-      - name: Install Buildozer and Cython
+      - name: Install Buildozer
         run: |
           pip install --upgrade pip
-          pip install "cython==0.29.36" "buildozer==1.5.0" pexpect "setuptools<70" virtualenv
+          pip install "buildozer==1.6.0" "setuptools<81" virtualenv
+
+      - name: Cache Android SDK/NDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: buildozer-
 
       - name: Build APK with Buildozer
         run: |
