@@ -1,0 +1,6 @@
+<receiver android:name="org.shiftapp.shiftapp.ShiftWidgetProvider" android:label="Jadwal Shift" android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+    </intent-filter>
+    <meta-data android:name="android.appwidget.provider" android:resource="@xml/shift_widget_info"/>
+</receiver>

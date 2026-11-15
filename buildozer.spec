@@ -13,7 +13,7 @@ source.include_exts = py,png,jpg,kv,atlas
 # Pemisah HARUS koma (sebelumnya spasi, sehingga tidak berfungsi)
 source.exclude_dirs = tests, tools, bin, venv, java_src, widget_res, .github, .git
 
-version = 1.1
+version = 1.2
 
 # pandas DIHAPUS: terlalu berat dikompilasi di Android (butuh numpy 2 + meson)
 # dan sering membuat build gagal. Excel dibaca dengan openpyxl, CSV dengan modul csv.
@@ -37,12 +37,12 @@ android.accept_sdk_license = True
 android.add_src = java_src
 android.add_resources = widget_res/layout:layout, widget_res/xml:xml, widget_res/drawable:drawable
 
-# python-for-android dikunci ke commit tertentu agar build tidak berubah-ubah
-# (sebelumnya selalu mengambil "master" terbaru). Commit ini memiliki
-# --extra-manifest-application-xml yang dipakai untuk mendaftarkan receiver widget.
-p4a.branch = master
-p4a.commit = ba5a5ff9e866a867aeddde641abb1f174af1c3ad
-p4a.extra_args = --extra-manifest-application-xml='<receiver android:name="org.shiftapp.shiftapp.ShiftWidgetProvider" android:label="Jadwal Shift" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/shift_widget_info"/></receiver>'
+# python-for-android TIDAK diatur di sini. Workflow (.github/workflows/build.yml)
+# meng-clone python-for-android versi tag v2024.01.21, menyisipkan <receiver> widget
+# ke template AndroidManifest (tools/patch_p4a.py + widget_res/receiver.xml), lalu
+# menambahkan baris "p4a.source_dir" ke file ini. Jadi p4a.branch / p4a.commit /
+# p4a.extra_args sengaja tidak dipakai (commit lama tidak ada di repo, dan opsi
+# --extra-manifest-application-xml tidak ada di python-for-android).
 
 
 [buildozer]
