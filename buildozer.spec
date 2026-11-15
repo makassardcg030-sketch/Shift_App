@@ -63,3 +63,6 @@ warn_on_root = 1
 
 # (str) Direktori penampung hasil build (default: ./bin)
 bin_dir = ./bin
+
+# (str) Source directory where the application lives
+source.dir = .
