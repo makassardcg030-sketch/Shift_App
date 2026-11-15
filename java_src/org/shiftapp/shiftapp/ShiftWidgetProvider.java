@@ -70,10 +70,11 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    // ------------------------------------------------- dipanggil dari Python
+    // Ganti bagian method saveSchedule di ShiftWidgetProvider.java dengan ini:
     public static void saveSchedule(Context context, String data) {
         SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         sp.edit().putString(KEY_SCHEDULE, data == null ? "" : data).apply();
+        PersonalWidgetProvider.updateAll(context);
     }
 
     public static void updateAll(Context context) {
