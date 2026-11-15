@@ -36,7 +36,18 @@ jobs:
       - name: Install Buildozer
         run: |
           pip install --upgrade pip
-          pip install "buildozer==1.6.0" "setuptools<81" virtualenv
+          pip install "buildozer==1.6.0" "setuptools<81" virtualenv "cython==3.0.11"
+
+      # python-for-android dipasang dari tag resmi, lalu receiver widget disisipkan
+      # ke template AndroidManifest-nya (tidak ada opsi bawaan untuk ini).
+      - name: Prepare python-for-android with widget receiver
+        run: |
+          git clone --depth 1 --branch v2024.01.21 \
+            https://github.com/kivy/python-for-android.git "$HOME/p4a"
+          python tools/patch_p4a.py "$HOME/p4a" widget_res/receiver.xml
+          pip install -e "$HOME/p4a"
+          sed -i "/^\[app\]/a p4a.source_dir = $HOME/p4a" buildozer.spec
+          grep -n "p4a" buildozer.spec
 
       - name: Cache Android SDK/NDK
         uses: actions/cache@v4
