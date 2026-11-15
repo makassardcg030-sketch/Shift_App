@@ -59,7 +59,12 @@ jobs:
       - name: Build APK with Buildozer
         run: |
           set -o pipefail
-          buildozer -v android debug 2>&1 | tee build.log
+          # Menggunakan stdbuf atau membatasi output verbose jika memungkinkan, 
+          # atau langsung arahkan output ke log file tanpa 'tee' jika terminal tidak membutuhkannya
+          buildozer -v android debug > build.log 2>&1 || {
+            tail -n 100 build.log
+            exit 1
+          }
 
       - name: Upload build log
         if: always()
