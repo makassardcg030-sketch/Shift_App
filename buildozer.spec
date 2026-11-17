@@ -22,10 +22,11 @@ orientation = portrait
 fullscreen = 0
 
 # ---- Android ----
-android.api = 33
+android.api = 35
 android.minapi = 24
 android.archs = arm64-v8a, armeabi-v7a
 android.permissions = com.android.alarm.permission.SET_ALARM
+android.release_artifact = aab
 
 android.accept_sdk_license = True
 
