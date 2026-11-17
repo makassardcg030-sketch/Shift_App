@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android AAB Release
 
 on:
   push:
@@ -38,8 +38,6 @@ jobs:
           pip install --upgrade pip
           pip install "buildozer==1.6.0" "setuptools<81" virtualenv "cython<3.0"
 
-      # python-for-android dipasang dari tag resmi, lalu receiver widget disisipkan
-      # ke template AndroidManifest-nya (tidak ada opsi bawaan untuk ini).
       - name: Prepare python-for-android with widget receiver
         run: |
           git clone --depth 1 --branch v2024.01.21 \
@@ -47,7 +45,12 @@ jobs:
           python tools/patch_p4a.py "$HOME/p4a" widget_res/receiver.xml
           pip install -e "$HOME/p4a"
           sed -i "/^\[app\]/a p4a.source_dir = $HOME/p4a" buildozer.spec
-          grep -n "p4a" buildozer.spec
+          sed -i "/^\[app\]/a android.release_artifact = aab" buildozer.spec
+          grep -n "p4a\|release_artifact" buildozer.spec
+
+      - name: Decode Keystore from Secrets
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/shift-app-release.jks"
 
       - name: Cache Android SDK/NDK
         uses: actions/cache@v4
@@ -56,12 +59,15 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-
 
-      - name: Build APK with Buildozer
+      - name: Build Signed AAB with Buildozer
+        env:
+          P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/shift-app-release.jks
+          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
+          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -o pipefail
-          # Menggunakan stdbuf atau membatasi output verbose jika memungkinkan, 
-          # atau langsung arahkan output ke log file tanpa 'tee' jika terminal tidak membutuhkannya
-          buildozer -v android debug > build.log 2>&1 || {
+          buildozer -v android release > build.log 2>&1 || {
             tail -n 100 build.log
             exit 1
           }
@@ -73,9 +79,9 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload APK Artifact
+      - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: package
-          path: bin/*.apk
+          name: release-aab
+          path: bin/*.aab
           if-no-files-found: error
