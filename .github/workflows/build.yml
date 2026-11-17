@@ -45,7 +45,6 @@ jobs:
           python tools/patch_p4a.py "$HOME/p4a" widget_res/receiver.xml
           pip install -e "$HOME/p4a"
           sed -i "/^\[app\]/a p4a.source_dir = $HOME/p4a" buildozer.spec
-          sed -i "/^\[app\]/a android.release_artifact = aab" buildozer.spec
           grep -n "p4a\|release_artifact" buildozer.spec
 
       - name: Decode Keystore from Secrets
