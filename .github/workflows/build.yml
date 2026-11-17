@@ -50,6 +50,7 @@ jobs:
           python tools/patch_p4a.py "$HOME/p4a" widget_res/receiver.xml
           pip install -e "$HOME/p4a"
           sed -i "/^\[app\]/a p4a.source_dir = $HOME/p4a" buildozer.spec
+          sed -i "s/android.release_artifact = aab/android.release_artifact = apk/g" buildozer.spec
           grep -n "p4a\|release_artifact" buildozer.spec
 
       - name: Decode Keystore from Secrets
@@ -63,7 +64,7 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-
 
-      - name: Build Signed AAB with Buildozer
+      - name: Build Signed APK with Buildozer
         env:
           P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/shift-app-release.jks
           P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -74,11 +75,6 @@ jobs:
           buildozer -v android release > build.log 2>&1 || {
             echo "=== LOG BUILDOZER ==="
             grep -v "^#" build.log | tail -n 40
-            echo "=== MENJALANKAN GRADLEW UNTUK MELIHAT ERROR ASLI ==="
-            DIST_DIR=$(find .buildozer/android/platform -maxdepth 3 -type d -name "shiftapp" | head -n 1)
-            if [ -n "$DIST_DIR" ] && [ -f "$DIST_DIR/gradlew" ]; then
-              cd "$DIST_DIR" && ./gradlew bundleRelease --stacktrace
-            fi
             exit 1
           }
 
@@ -89,9 +85,9 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload AAB Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-aab
-          path: bin/*.aab
+          name: release-apk
+          path: bin/*.apk
           if-no-files-found: error
