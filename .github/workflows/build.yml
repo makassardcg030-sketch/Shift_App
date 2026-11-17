@@ -67,7 +67,13 @@ jobs:
         run: |
           set -o pipefail
           buildozer -v android release > build.log 2>&1 || {
-            tail -n 100 build.log
+            echo "=== LOG BUILDOZER ==="
+            grep -v "^#" build.log | tail -n 40
+            echo "=== MENJALANKAN GRADLEW UNTUK MELIHAT ERROR ASLI ==="
+            DIST_DIR=$(find .buildozer/android/platform -maxdepth 3 -type d -name "shiftapp" | head -n 1)
+            if [ -n "$DIST_DIR" ] && [ -f "$DIST_DIR/gradlew" ]; then
+              cd "$DIST_DIR" && ./gradlew bundleRelease --stacktrace
+            fi
             exit 1
           }
 
