@@ -320,7 +320,7 @@ class ShiftApp(BoxLayout):
 
     def download_template(self, *_):
         import shutil
-        src = "template_jadwal_shift.xlsx"
+        src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template_jadwal_shift.xlsx")
         dst = os.path.join(App.get_running_app().user_data_dir, "template_jadwal_shift.xlsx")
         try:
             if os.path.exists(src):
@@ -367,7 +367,10 @@ class ShiftApp(BoxLayout):
         PythonActivity.mActivity.startActivityForResult(intent, PICK_REQUEST)
 
     def _on_activity_result(self, request_code, result_code, intent):
-        if request_code != PICK_REQUEST or result_code != -1 or intent is None:
+        if request_code != PICK_REQUEST:
+            return
+        if result_code != -1 or intent is None or intent.getData() is None:
+            Clock.schedule_once(lambda dt: self._set_status("Pemilihan file dibatalkan / tidak ada file dipilih."))
             return
         try:
             from jnius import autoclass
@@ -388,7 +391,7 @@ class ShiftApp(BoxLayout):
             self._set_status(str(exc))
             return
         except Exception as exc:
-            self._set_status("Gagal membaca file: %s" % exc)
+            self._set_status("Gagal membaca file (%s): %s" % (type(exc).__name__, exc))
             return
         self.days = sl.merge_days(self.days, month_key, new_days, date.today())
         self._rebuild()

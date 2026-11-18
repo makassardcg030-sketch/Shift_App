@@ -120,9 +120,24 @@ def parse_grid(rows, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN"
         raise ScheduleError("Tidak ada data jadwal terbaca.")
     return "%04d-%02d" % (year, month), days
 
-def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
+def _sniff_kind(path):
+    """'xlsx' / 'csv' dari ekstensi, atau dari isi file bila nama tanpa ekstensi."""
     lower = path.lower()
+    if lower.endswith((".xlsx", ".xlsm")):
+        return "xlsx"
     if lower.endswith(".csv"):
+        return "csv"
+    with open(path, "rb") as f:
+        head = f.read(4)
+    if head[:2] == b"PK":
+        return "xlsx"
+    if head[:4] == b"\xd0\xcf\x11\xe0":
+        raise ScheduleError("File .xls (format lama) tidak didukung. Simpan ulang sebagai .xlsx.")
+    return "csv"
+
+
+def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
+    if _sniff_kind(path) == "csv":
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             sample = f.read(4096)
             f.seek(0)
@@ -131,14 +146,16 @@ def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN",
             except csv.Error:
                 dialect = csv.excel
             return parse_grid(list(csv.reader(f, dialect)), off_words, cuti_words)
-    if lower.endswith(".xlsx"):
-        from openpyxl import load_workbook
-        wb = load_workbook(path, read_only=True, data_only=True)
+    from openpyxl import load_workbook
+    # Dibuka lewat objek file: openpyxl menolak path yang tidak berakhiran .xlsx.
+    with open(path, "rb") as fh:
+        wb = load_workbook(fh, data_only=True)
         try:
-            return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)), off_words, cuti_words)
+            return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)),
+                              off_words, cuti_words)
         finally:
             wb.close()
-    raise ScheduleError("Format file tidak didukung.")
+
 
 def merge_days(old, month_key, new, today=None, keep_days=60):
     kept = [d for d in old if not d[0].startswith(month_key)]
@@ -206,5 +223,5 @@ def compute(entries, now):
         first = min(future)
         label = first.strftime("%H:%M") if first.date() == now.date() \
             else "%s %s" % (HARI[first.weekday()], first.strftime("%H:%M"))
-        nxt = [(e["name"], label) for (s, _), _e in spans if s == first]
+        nxt = [(e["name"], label) for (s, _), e in spans if s == first]
     return duty, nxt

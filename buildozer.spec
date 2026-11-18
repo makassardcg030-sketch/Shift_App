@@ -8,7 +8,7 @@ package.name = shiftapp
 package.domain = org.shiftapp
 
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,xlsx
 source.exclude_dirs = tests, tools, bin, venv, java_src, widget_res, .github, .git
 
 # Ikon aplikasi (simpan gambar logo sebagai icon.png di root folder)
