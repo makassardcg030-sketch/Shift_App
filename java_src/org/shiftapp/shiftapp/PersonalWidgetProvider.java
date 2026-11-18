@@ -120,13 +120,11 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
         WidgetTheme.Palette th = WidgetTheme.load(context);
         WidgetTheme.bg(views, context, "pwidget_root", th.bg);
         WidgetTheme.fg(views, context, "pwidget_name", th.text);
-        WidgetTheme.fg(views, context, "p_time", th.nextBg);
         WidgetTheme.bg(views, context, "p_duty_row", th.accent);
-        WidgetTheme.fg(views, context, "p_duty_label", th.onAccent);
         WidgetTheme.fg(views, context, "pwidget_duty", th.onAccent);
         WidgetTheme.bg(views, context, "p_next_row", th.nextBg);
-        WidgetTheme.fg(views, context, "p_next_label", th.nextText);
         WidgetTheme.fg(views, context, "pwidget_next", th.nextText);
+
         String selectedName = getSelectedName(context, widgetId);
         String raw = prefs(context).getString(KEY_SCHEDULE, "");
         List<Entry> all = parse(raw);
@@ -138,7 +136,7 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
         int idBtnAlarm = idOf(context, "pwidget_btn_alarm");
         int idRoot = idOf(context, "pwidget_root");
 
-        // Ketuk nama untuk membuka dialog ganti nama
+        // Ketuk nama untuk mengganti nama personal
         Intent cfgIntent = new Intent(context, PersonalWidgetConfigActivity.class);
         cfgIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
         cfgIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -147,7 +145,7 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(idName, cfgPi);
 
-        // Ketuk area lain untuk membuka aplikasi utama
+        // Ketuk root untuk membuka aplikasi utama
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(pkg);
         if (launch != null) {
             PendingIntent launchPi = PendingIntent.getActivity(
@@ -157,28 +155,22 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
         }
 
         if (selectedName == null || selectedName.isEmpty()) {
-            views.setTextViewText(idName, "Ketuk pilih nama ▼");
-            views.setTextViewText(idDuty, "-");
-            views.setTextViewText(idNext, "Belum dipilih");
+            views.setTextViewText(idName, "Pilih Nama ▼");
+            views.setTextViewText(idDuty, "Sekarang: -");
+            views.setTextViewText(idNext, "Berikutnya: -");
             views.setViewVisibility(idBtnAlarm, View.GONE);
             manager.updateAppWidget(widgetId, views);
             return;
         }
 
-        views.setTextViewText(idName, selectedName + " ✎");
+        views.setTextViewText(idName, selectedName);
 
+        // 1. Cek Jadwal Sekarang
         Entry activeShift = null;
-        Entry nextShift = null;
         for (Entry e : all) {
-            if (!e.name.equalsIgnoreCase(selectedName)) {
-                continue;
-            }
-            if (e.start <= now && now < e.end) {
+            if (e.name.equalsIgnoreCase(selectedName) && e.start <= now && now < e.end) {
                 activeShift = e;
-            } else if (e.start > now) {
-                if (nextShift == null || e.start < nextShift.start) {
-                    nextShift = e;
-                }
+                break;
             }
         }
 
@@ -186,30 +178,62 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
             String endStr = fmt("HH:mm", activeShift.end);
             views.setTextViewText(idDuty, activeShift.hour + "+" + activeShift.dur + " (s/d " + endStr + ")");
         } else {
-            views.setTextViewText(idDuty, "Sedang Off / Libur");
+            views.setTextViewText(idDuty, "Off / Libur");
+        }
+
+        // 2. Cek Jadwal Akan Datang (Jangan lompat ke hari berikutnya jika besok/slot berikutnya Off/Libur)
+        // Tentukan tanggal target berikutnya:
+        // - Jika masih ada shift user di sisa hari ini (e.start > now pada hari yang sama), tampilkan shift tersebut.
+        // - Jika tidak ada lagi shift user hari ini, cek jadwal user pada hari BESOK (now + 1 hari).
+        // - Jika besok user tidak punya shift (padahal jadwal tanggal besok tersedia atau memang libur), tampilkan "Besok: Off / Libur" tanpa melompat ke lusa.
+        Entry nextShift = null;
+        for (Entry e : all) {
+            if (e.name.equalsIgnoreCase(selectedName) && e.start > now && sameDay(e.start, now)) {
+                if (nextShift == null || e.start < nextShift.start) {
+                    nextShift = e;
+                }
+            }
+        }
+
+        boolean isTomorrowOff = false;
+        if (nextShift == null) {
+            Calendar calTomorrow = Calendar.getInstance();
+            calTomorrow.setTimeInMillis(now);
+            calTomorrow.add(Calendar.DAY_OF_YEAR, 1);
+            long tomorrowMs = calTomorrow.getTimeInMillis();
+
+            for (Entry e : all) {
+                if (e.name.equalsIgnoreCase(selectedName) && sameDay(e.start, tomorrowMs)) {
+                    if (nextShift == null || e.start < nextShift.start) {
+                        nextShift = e;
+                    }
+                }
+            }
+            if (nextShift == null) {
+                isTomorrowOff = true;
+            }
         }
 
         if (nextShift != null) {
             String nextLabel = sameDay(nextShift.start, now)
                     ? "Hari ini " + fmt("HH:mm", nextShift.start)
-                    : fmt("EEE, dd MMM HH:mm", nextShift.start);
+                    : fmt("EEE, HH:mm", nextShift.start);
             views.setTextViewText(idNext, nextLabel);
 
             long alarmTimeMs = nextShift.start - HOUR_MS;
-            String alarmHourStr = fmt("HH:mm", alarmTimeMs);
             views.setViewVisibility(idBtnAlarm, View.VISIBLE);
-            views.setTextViewText(idBtnAlarm, "⏰ " + alarmHourStr);
+            views.setTextViewText(idBtnAlarm, "⏰");
 
             Intent alarmIntent = new Intent(context, PersonalWidgetProvider.class);
             alarmIntent.setAction(ACTION_SET_ALARM);
             alarmIntent.putExtra(EXTRA_ALARM_MS, alarmTimeMs);
-            alarmIntent.putExtra(EXTRA_SHIFT_LABEL, "Shift " + selectedName + " (" + fmt("HH:mm", nextShift.start) + ")");
+            alarmIntent.putExtra(EXTRA_SHIFT_LABEL, "Shift " + selectedName + " (" + fmt("EEE HH:mm", nextShift.start) + ")");
             PendingIntent alarmPi = PendingIntent.getBroadcast(
                     context, widgetId + 3000, alarmIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             views.setOnClickPendingIntent(idBtnAlarm, alarmPi);
         } else {
-            views.setTextViewText(idNext, "Tidak ada jadwal");
+            views.setTextViewText(idNext, isTomorrowOff ? "Besok: Off / Libur" : "Off / Libur");
             views.setViewVisibility(idBtnAlarm, View.GONE);
         }
 
@@ -221,14 +245,22 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
             Toast.makeText(context, "Jadwal berikutnya tidak tersedia.", Toast.LENGTH_SHORT).show();
             return;
         }
+        // alarmTimeMs sudah dikurangi 1 jam dari waktu mulai shift.
+        // Contoh: shift Jumat 00:00 -> alarmTimeMs otomatis menjadi Kamis 23:00.
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(alarmTimeMs);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         int minute = cal.get(Calendar.MINUTE);
+        int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
+        String dayName = fmt("EEEE", alarmTimeMs);
+
+        ArrayList<Integer> days = new ArrayList<Integer>();
+        days.add(dayOfWeek);
 
         Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
         intent.putExtra(AlarmClock.EXTRA_HOUR, hour);
         intent.putExtra(AlarmClock.EXTRA_MINUTES, minute);
+        intent.putExtra(AlarmClock.EXTRA_DAYS, days);
         intent.putExtra(AlarmClock.EXTRA_MESSAGE, label != null ? label : "Jadwal Shift");
         intent.putExtra(AlarmClock.EXTRA_SKIP_UI, true);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -237,7 +269,7 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
             context.startActivity(intent);
             Toast.makeText(
                     context,
-                    String.format(Locale.US, "Alarm disetel pukul %02d:%02d (1 jam sebelum shift)", hour, minute),
+                    String.format(Locale.US, "Alarm disetel: %s, %02d:%02d", dayName, hour, minute),
                     Toast.LENGTH_LONG
             ).show();
         } catch (Exception e) {

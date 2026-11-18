@@ -16,20 +16,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Widget homescreen "Jadwal Shift":
- *
- *   HARI INI 15-Nov            Time 17:29      (TextClock, jalan sendiri)
- *   SHIFT | Name   | Time | Name  | Time
- *   Duty: | Dirlan | 14+8 | Yasid | 14+8
- *   Next: | Cum    | 22:00|       |
- *
- * Data disimpan aplikasi Python (saveSchedule), satu baris per shift:
- *     yyyy-MM-dd|Nama|jamMulai|durasiJam        mis. 2026-11-15|Dirlan|14|8
- * Durasi (+8 / +5) sudah dihitung di Python. Widget hanya menentukan siapa
- * yang sedang bertugas dan siapa berikutnya, dan menjadwalkan pembaruan
- * sendiri tepat saat shift berganti, jadi tetap akurat walau aplikasi tertutup.
- */
 public class ShiftWidgetProvider extends AppWidgetProvider {
 
     private static final String PREFS = "shift_widget";
@@ -45,7 +31,6 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         long end;
     }
 
-    // ------------------------------------------------------------ lifecycle
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         for (int id : appWidgetIds) {
@@ -70,7 +55,6 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    // Ganti bagian method saveSchedule di ShiftWidgetProvider.java dengan ini:
     public static void saveSchedule(Context context, String data) {
         SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         sp.edit().putString(KEY_SCHEDULE, data == null ? "" : data).apply();
@@ -87,7 +71,6 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         scheduleNext(context);
     }
 
-    // -------------------------------------------------------------- tampilan
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
         String pkg = context.getPackageName();
         int layoutId = context.getResources().getIdentifier("shift_widget", "layout", pkg);
@@ -95,7 +78,7 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
             return;
         }
         RemoteViews views = new RemoteViews(pkg, layoutId);
-        // TEMA WIDGET IKUT APLIKASI: baca tema yang disimpan Python, terapkan ke semua baris.
+
         WidgetTheme.Palette th = WidgetTheme.load(context);
         WidgetTheme.bg(views, context, "widget_root", th.bg);
         WidgetTheme.bg(views, context, "w_header", th.card);
@@ -103,10 +86,21 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         WidgetTheme.fg(views, context, "w_date", th.nextBg);
         WidgetTheme.fg(views, context, "w_time_label", th.muted);
         WidgetTheme.fg(views, context, "w_time", th.text);
-        for (String id : new String[]{"w_h_shift","w_h_n1","w_h_t1","w_h_n2","w_h_t2"}) { WidgetTheme.bg(views, context, id, th.card); WidgetTheme.fg(views, context, id, th.text); }
-        for (String id : new String[]{"w_duty_label","duty_name1","duty_time1","duty_name2","duty_time2"}) { WidgetTheme.bg(views, context, id, th.accent); WidgetTheme.fg(views, context, id, th.onAccent); }
-        WidgetTheme.fg(views, context, "w_duty_label", th.accent2 == 0 ? th.onAccent : th.onAccent);
-        for (String id : new String[]{"w_next_label","next_name1","next_time1","next_name2","next_time2"}) { WidgetTheme.bg(views, context, id, th.nextBg); WidgetTheme.fg(views, context, id, th.nextText); }
+
+        WidgetTheme.bg(views, context, "w_duty_header", th.accent);
+        WidgetTheme.fg(views, context, "w_duty_header", th.onAccent);
+        WidgetTheme.bg(views, context, "w_next_header", th.nextBg);
+        WidgetTheme.fg(views, context, "w_next_header", th.nextText);
+
+        for (int i = 1; i <= 3; i++) {
+            WidgetTheme.bg(views, context, "duty_row_" + i, th.card);
+            WidgetTheme.fg(views, context, "duty_name" + i, th.text);
+            WidgetTheme.fg(views, context, "duty_time" + i, th.accent2 != 0 ? th.accent2 : th.text);
+
+            WidgetTheme.bg(views, context, "next_row_" + i, th.card);
+            WidgetTheme.fg(views, context, "next_name" + i, th.text);
+            WidgetTheme.fg(views, context, "next_time" + i, th.nextBg);
+        }
 
         String raw = prefs(context).getString(KEY_SCHEDULE, "");
         String[] c = compute(parse(raw), System.currentTimeMillis());
@@ -115,10 +109,15 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         setText(context, views, "duty_time1", c[1]);
         setText(context, views, "duty_name2", c[2]);
         setText(context, views, "duty_time2", c[3]);
-        setText(context, views, "next_name1", c[4]);
-        setText(context, views, "next_time1", c[5]);
-        setText(context, views, "next_name2", c[6]);
-        setText(context, views, "next_time2", c[7]);
+        setText(context, views, "duty_name3", c[4]);
+        setText(context, views, "duty_time3", c[5]);
+
+        setText(context, views, "next_name1", c[6]);
+        setText(context, views, "next_time1", c[7]);
+        setText(context, views, "next_name2", c[8]);
+        setText(context, views, "next_time2", c[9]);
+        setText(context, views, "next_name3", c[10]);
+        setText(context, views, "next_time3", c[11]);
 
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(pkg);
         if (launch != null) {
@@ -131,7 +130,10 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
     }
 
     private static void setText(Context context, RemoteViews views, String idName, String text) {
-        views.setTextViewText(idOf(context, idName), text);
+        int id = idOf(context, idName);
+        if (id != 0) {
+            views.setTextViewText(id, text);
+        }
     }
 
     private static int idOf(Context context, String name) {
@@ -142,7 +144,6 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    // ------------------------------------------------ alarm pergantian shift
     private static PendingIntent refreshIntent(Context context) {
         Intent in = new Intent(context, ShiftWidgetProvider.class);
         in.setAction(ACTION_REFRESH);
@@ -150,7 +151,6 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
                 context, 1, in, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    /** Alarm tidak-presisi (tanpa izin khusus): bisa meleset beberapa menit. */
     private static void scheduleNext(Context context) {
         AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (am == null) {
@@ -159,12 +159,8 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         long now = System.currentTimeMillis();
         long next = Long.MAX_VALUE;
         for (Entry e : parse(prefs(context).getString(KEY_SCHEDULE, ""))) {
-            if (e.start > now && e.start < next) {
-                next = e.start;
-            }
-            if (e.end > now && e.end < next) {
-                next = e.end;
-            }
+            if (e.start > now && e.start < next) next = e.start;
+            if (e.end > now && e.end < next) next = e.end;
         }
         PendingIntent pi = refreshIntent(context);
         am.cancel(pi);
@@ -173,15 +169,17 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    // ---------------------------------------------------------------- logika
     /**
-     * Hasil: [duty nama1, duty waktu1, duty nama2, duty waktu2,
-     *         next nama1, next waktu1, next nama2, next waktu2].
-     * Aturan sama dengan compute() di schedule_logic.py.
+     * Hasil 12 elemen:
+     * [0..5]  = Duty 1..3 (nama, waktu)
+     * [6..11] = Next 1..3 (nama, waktu HH:mm saja)
      */
     static String[] compute(List<Entry> entries, long now) {
         if (entries.isEmpty()) {
-            return new String[]{"-", "", "", "", "Buka app", "upload", "", ""};
+            return new String[]{
+                    "1. -", "", "", "", "", "",
+                    "1. Buka app", "upload", "", "", "", ""
+            };
         }
 
         List<String[]> duty = new ArrayList<String[]>();
@@ -197,11 +195,11 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
                 nextStart = e.start;
             }
         }
+
         List<String[]> next = new ArrayList<String[]>();
         if (nextStart != Long.MAX_VALUE) {
-            String label = sameDay(nextStart, now)
-                    ? fmt("HH:mm", nextStart)
-                    : fmt("EEE HH:mm", nextStart);
+            // Bagian next cukup jam saja, tanpa hari dan tanggal
+            String label = fmt("HH:mm", nextStart);
             for (Entry e : entries) {
                 if (e.start == nextStart) {
                     next.add(new String[]{e.name, label});
@@ -209,28 +207,35 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
             }
         }
 
-        String[] d = slots(duty);
-        String[] n = slots(next);
-        return new String[]{d[0], d[1], d[2], d[3], n[0], n[1], n[2], n[3]};
+        String[] d = slots3(duty);
+        String[] n = slots3(next);
+        return new String[]{
+                d[0], d[1], d[2], d[3], d[4], d[5],
+                n[0], n[1], n[2], n[3], n[4], n[5]
+        };
     }
 
-    /** Dua slot (nama, waktu). Jika lebih dari dua orang: "Nama +N" di slot kedua. */
-    private static String[] slots(List<String[]> items) {
+    /** Maksimal 3 slot bernomor (1., 2., 3.). Jika > 3, baris ke-3 ditambah +N */
+    private static String[] slots3(List<String[]> items) {
         if (items.isEmpty()) {
-            return new String[]{"-", "", "", ""};
+            return new String[]{"-", "", "", "", "", ""};
         }
-        if (items.size() == 1) {
-            return new String[]{items.get(0)[0], items.get(0)[1], "", ""};
-        }
-        String second = items.get(1)[0];
-        if (items.size() > 2) {
-            second = second + " +" + (items.size() - 2);
-        }
-        return new String[]{items.get(0)[0], items.get(0)[1], second, items.get(1)[1]};
-    }
+        String n1 = "1. " + items.get(0)[0];
+        String t1 = items.get(0)[1];
 
-    private static boolean sameDay(long a, long b) {
-        return fmt("yyyyMMdd", a).equals(fmt("yyyyMMdd", b));
+        String n2 = items.size() >= 2 ? "2. " + items.get(1)[0] : "";
+        String t2 = items.size() >= 2 ? items.get(1)[1] : "";
+
+        String n3 = "";
+        String t3 = "";
+        if (items.size() >= 3) {
+            n3 = "3. " + items.get(2)[0];
+            if (items.size() > 3) {
+                n3 = n3 + " +" + (items.size() - 3);
+            }
+            t3 = items.get(2)[1];
+        }
+        return new String[]{n1, t1, n2, t2, n3, t3};
     }
 
     private static String fmt(String pattern, long millis) {
@@ -246,20 +251,16 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
         f.setLenient(false);
         for (String line : data.split("\n")) {
             String[] p = line.trim().split("\\|", -1);
-            if (p.length < 4) {
-                continue;
-            }
+            if (p.length < 4) continue;
             try {
                 Entry e = new Entry();
                 e.name = p[1].trim();
                 e.hour = Integer.parseInt(p[2].trim());
                 e.dur = Integer.parseInt(p[3].trim());
-                e.start = f.parse(p[0].trim() + " " + String.format(Locale.US, "%02d:00", e.hour))
-                        .getTime();
+                e.start = f.parse(p[0].trim() + " " + String.format(Locale.US, "%02d:00", e.hour)).getTime();
                 e.end = e.start + e.dur * HOUR_MS;
                 out.add(e);
             } catch (Exception ignored) {
-                // baris rusak dilewati
             }
         }
         return out;
