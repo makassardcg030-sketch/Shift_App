@@ -1,39 +1,9 @@
-"""Logika jadwal shift (murni Python, tanpa Kivy/Android) supaya mudah diuji.
-
-FORMAT FILE (xlsx, atau csv dengan tata letak yang sama)
---------------------------------------------------------
-  - Judul bulan di baris atas, mis. "November 2026" (teks atau sel tanggal).
-  - Header: kolom "NIK" dan "Nama", lalu satu kolom per tanggal.
-    Baris nama hari (MIN SEN ...) boleh ada; baris angka tanggal (01..30) wajib.
-  - Satu baris per orang. Isi sel:
-        angka (6, 8, 11, 14, 22)  -> jam MULAI shift
-        off                       -> libur
-        C                         -> cuti
-        kosong / teks lain        -> tidak bertugas
-
-ATURAN DURASI
--------------
-  - Normal: mulai + 8 jam   (14 -> 14:00-22:00, 22 -> 22:00-06:00 besok).
-  - Hari terakhir sebelum "off": mulai + 5 jam.
-  - Pengecualian: jika hanya ada 5 hari kerja di antara dua hari libur
-    (off/C), hari terakhir itu tetap +8.
-  - Rangkaian kerja yang terpotong awal bulan (hari sebelum tanggal 1 tidak
-    diketahui) dianggap tidak bisa dipastikan 5 hari -> tetap +5.
-    Begitu file bulan sebelumnya juga pernah diunggah, aturan dihitung benar.
-"""
+"""Logika jadwal shift fleksibel (murni Python, tanpa Kivy/Android)."""
 import csv
 import datetime as dt
 import re
 
 HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
-
-DUR_FULL = 8        # durasi normal (jam)
-DUR_SHORT = 5       # durasi hari terakhir sebelum off (jam)
-EXACT_FULL_RUN = 5  # jika rangkaian kerja persis segini hari -> tetap DUR_FULL
-KEEP_DAYS = 60      # data lebih tua dari ini dibuang
-
-OFF_WORDS = ("OFF", "LIBUR")
-CUTI_WORDS = ("C", "CUTI")
 
 MONTHS = {
     "januari": 1, "january": 1, "jan": 1,
@@ -50,14 +20,10 @@ MONTHS = {
     "desember": 12, "december": 12, "des": 12, "dec": 12,
 }
 
-
 class ScheduleError(Exception):
     pass
 
-
-# ---------------------------------------------------------------- membaca file
 def _find_month(rows):
-    """Cari (tahun, bulan) dari judul di beberapa baris teratas."""
     for row in rows:
         for v in row:
             if isinstance(v, (dt.datetime, dt.date)):
@@ -66,9 +32,7 @@ def _find_month(rows):
                 m = re.search(r"([A-Za-z]+)\.?\s*[-/ ]?\s*(\d{4})", v)
                 if m and m.group(1).lower() in MONTHS:
                     return int(m.group(2)), MONTHS[m.group(1).lower()]
-    raise ScheduleError(
-        "Judul bulan tidak ditemukan. Tulis di baris atas file, mis. \"November 2026\".")
-
+    raise ScheduleError("Judul bulan tidak ditemukan di baris atas file.")
 
 def _day_number(v):
     if isinstance(v, (dt.datetime, dt.date)):
@@ -81,9 +45,7 @@ def _day_number(v):
         return int(f)
     return None
 
-
-def parse_code(v):
-    """Sel jadwal -> '14' (jam mulai) | 'OFF' | 'C' | 'X' (lainnya) | None (kosong)."""
+def parse_code(v, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
     if v is None or isinstance(v, bool):
         return None
     if isinstance(v, dt.datetime):
@@ -97,24 +59,21 @@ def parse_code(v):
     s = str(v).strip().upper()
     if not s:
         return None
-    if s in OFF_WORDS:
+    if s in off_words:
         return "OFF"
-    if s in CUTI_WORDS:
+    if s in cuti_words:
         return "C"
     m = re.fullmatch(r"(\d{1,2})(?:[:.]00)?", s)
     if m and int(m.group(1)) <= 23:
         return str(int(m.group(1)))
     return "X"
 
-
-def parse_grid(rows):
-    """Baris-baris sel -> (kunci_bulan 'YYYY-MM', [(tanggal_iso, nama, kode), ...])."""
+def parse_grid(rows, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
     rows = [list(r) for r in rows]
     if not rows:
         raise ScheduleError("File kosong.")
     year, month = _find_month(rows[:6])
 
-    # posisi header "Nama"
     hdr = name_col = None
     for ri, row in enumerate(rows[:10]):
         for ci, v in enumerate(row):
@@ -124,9 +83,8 @@ def parse_grid(rows):
         if hdr is not None:
             break
     if hdr is None:
-        raise ScheduleError("Kolom \"Nama\" tidak ditemukan di header.")
+        raise ScheduleError("Kolom \"Nama\" tidak ditemukan.")
 
-    # baris angka tanggal (01..30)
     day_row, day_cols = None, {}
     for ri in range(hdr, min(hdr + 4, len(rows))):
         cols = {}
@@ -138,7 +96,7 @@ def parse_grid(rows):
             day_row, day_cols = ri, cols
             break
     if day_row is None:
-        raise ScheduleError("Baris tanggal (01, 02, ... 30) tidak ditemukan di bawah header.")
+        raise ScheduleError("Baris tanggal (01..30) tidak ditemukan.")
 
     days = []
     for row in rows[day_row + 1:]:
@@ -147,7 +105,7 @@ def parse_grid(rows):
             continue
         got = False
         for ci, d in day_cols.items():
-            code = parse_code(row[ci] if ci < len(row) else None)
+            code = parse_code(row[ci] if ci < len(row) else None, off_words, cuti_words)
             if code is None:
                 continue
             try:
@@ -159,11 +117,10 @@ def parse_grid(rows):
         if not got:
             continue
     if not days:
-        raise ScheduleError("Tidak ada data jadwal yang terbaca di file.")
+        raise ScheduleError("Tidak ada data jadwal terbaca.")
     return "%04d-%02d" % (year, month), days
 
-
-def load_days(path):
+def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
     lower = path.lower()
     if lower.endswith(".csv"):
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
@@ -173,31 +130,26 @@ def load_days(path):
                 dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
             except csv.Error:
                 dialect = csv.excel
-            return parse_grid(list(csv.reader(f, dialect)))
+            return parse_grid(list(csv.reader(f, dialect)), off_words, cuti_words)
     if lower.endswith(".xlsx"):
         from openpyxl import load_workbook
         wb = load_workbook(path, read_only=True, data_only=True)
         try:
-            return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)))
+            return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)), off_words, cuti_words)
         finally:
             wb.close()
-    raise ScheduleError("Format file tidak didukung. Gunakan .xlsx atau .csv.")
+    raise ScheduleError("Format file tidak didukung.")
 
-
-# ------------------------------------------------------- penyimpanan & gabungan
-def merge_days(old, month_key, new, today=None):
-    """Ganti data bulan month_key dengan file baru, bulan lain dipertahankan."""
+def merge_days(old, month_key, new, today=None, keep_days=60):
     kept = [d for d in old if not d[0].startswith(month_key)]
     merged = kept + list(new)
     if today:
-        limit = (today - dt.timedelta(days=KEEP_DAYS)).isoformat()
+        limit = (today - dt.timedelta(days=keep_days)).isoformat()
         merged = [d for d in merged if d[0] >= limit]
     return merged
 
-
 def days_to_text(days):
     return "\n".join("|".join(d) for d in days)
-
 
 def text_to_days(text):
     out = []
@@ -207,10 +159,7 @@ def text_to_days(text):
             out.append((p[0], p[1], p[2]))
     return out
 
-
-# --------------------------------------------------------------- hitung durasi
-def build_entries(days):
-    """[(tanggal, nama, kode)] -> [{'date','name','hour','dur'}] dengan aturan +8/+5."""
+def build_entries(days, dur_full=8, dur_short=5, exact_full_run=5):
     order = {}
     by_name = {}
     for date_iso, name, code in days:
@@ -223,15 +172,15 @@ def build_entries(days):
         for d, code in m.items():
             if not code.isdigit():
                 continue
-            dur = DUR_FULL
+            dur = dur_full
             if m.get(d + one) == "OFF":
                 run, cur = 0, d
                 while m.get(cur, "").isdigit():
                     run += 1
                     cur -= one
-                bounded = cur in m  # hari sebelum rangkaian diketahui (off/C/lainnya)
-                if not (bounded and run == EXACT_FULL_RUN):
-                    dur = DUR_SHORT
+                bounded = cur in m
+                if not (bounded and run == exact_full_run):
+                    dur = dur_short
             entries.append({"date": d.isoformat(), "name": name,
                             "hour": int(code), "dur": dur, "_o": order[name]})
     entries.sort(key=lambda e: (e["date"], e["_o"]))
@@ -239,24 +188,15 @@ def build_entries(days):
         del e["_o"]
     return entries
 
-
 def entries_to_text(entries):
-    """Format untuk widget Java: yyyy-MM-dd|Nama|jam|durasi"""
     return "\n".join("%s|%s|%d|%d" % (e["date"], e["name"], e["hour"], e["dur"])
                      for e in entries)
 
-
-# ------------------------------------------------------------ duty / next
 def _span(e):
     start = dt.datetime.fromisoformat(e["date"]) + dt.timedelta(hours=e["hour"])
     return start, start + dt.timedelta(hours=e["dur"])
 
-
 def compute(entries, now):
-    """Return (duty, next):
-         duty = [(nama, '14+8'), ...]
-         next = [(nama, '22:00' atau 'Sen 06:00'), ...]
-    Aturan sama dengan ShiftWidgetProvider.java."""
     spans = [(_span(e), e) for e in entries]
     duty = [(e["name"], "%d+%d" % (e["hour"], e["dur"]))
             for (s, en), e in spans if s <= now < en]
@@ -266,5 +206,5 @@ def compute(entries, now):
         first = min(future)
         label = first.strftime("%H:%M") if first.date() == now.date() \
             else "%s %s" % (HARI[first.weekday()], first.strftime("%H:%M"))
-        nxt = [(e["name"], label) for (s, _), e in spans if s == first]
+        nxt = [(e["name"], label) for (s, _), _e in spans if s == first]
     return duty, nxt

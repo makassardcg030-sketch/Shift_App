@@ -20,11 +20,35 @@ import schedule_logic as sl
 PICK_REQUEST = 4711
 PKG = "org.shiftapp.shiftapp"
 
-# Palet Warna Modern Dark UI
-BG_DARK = (0.06, 0.09, 0.16, 1)       # #0F172A Slate 900
-CARD_BG = (0.12, 0.16, 0.23, 1)       # #1E293B Slate 800
-CARD_BORDER = (0.20, 0.25, 0.33, 1)   # #334155 Slate 700
-ACCENT_BLUE = (0.15, 0.39, 0.92, 1)   # #2563EB Royal Blue
+# Pilihan Palet Tema Warna UI (Fleksibel / Poin 4)
+THEMES = {
+    "Slate Dark": {
+        "BG_DARK": (0.06, 0.09, 0.16, 1),       # #0F172A Slate 900
+        "CARD_BG": (0.12, 0.16, 0.23, 1),       # #1E293B Slate 800
+        "CARD_BORDER": (0.20, 0.25, 0.33, 1),   # #334155 Slate 700
+        "ACCENT_BLUE": (0.15, 0.39, 0.92, 1),   # #2563EB Royal Blue
+    },
+    "Midnight Blue": {
+        "BG_DARK": (0.04, 0.06, 0.12, 1),
+        "CARD_BG": (0.09, 0.13, 0.22, 1),
+        "CARD_BORDER": (0.16, 0.22, 0.35, 1),
+        "ACCENT_BLUE": (0.20, 0.50, 0.95, 1),
+    },
+    "Emerald Dark": {
+        "BG_DARK": (0.05, 0.09, 0.07, 1),
+        "CARD_BG": (0.10, 0.18, 0.14, 1),
+        "CARD_BORDER": (0.18, 0.30, 0.24, 1),
+        "ACCENT_BLUE": (0.06, 0.55, 0.35, 1),
+    }
+}
+
+# Default Active Theme
+CURRENT_THEME = THEMES["Slate Dark"]
+BG_DARK = CURRENT_THEME["BG_DARK"]
+CARD_BG = CURRENT_THEME["CARD_BG"]
+CARD_BORDER = CURRENT_THEME["CARD_BORDER"]
+ACCENT_BLUE = CURRENT_THEME["ACCENT_BLUE"]
+
 ACCENT_CYAN = (0.02, 0.52, 0.78, 1)   # #0284C7 Sky 600
 ACCENT_RED = (0.86, 0.15, 0.15, 1)    # #DC2626 Red 600
 ACCENT_YELLOW = (0.98, 0.80, 0.08, 1) # #FACC15 Yellow 400
@@ -109,6 +133,12 @@ class ShiftApp(BoxLayout):
         self._next_personal_start = None
         self._next_personal_name = ""
 
+        # Konfigurasi Fleksibel (Poin 2 & 3)
+        self.dur_full = 8
+        self.dur_short = 5
+        self.off_words = ("OFF", "LIBUR")
+        self.cuti_words = ("C", "CUTI", "IZIN", "SAKIT")
+
         scroll = ScrollView(do_scroll_x=False)
         root = BoxLayout(
             orientation="vertical",
@@ -134,20 +164,50 @@ class ShiftApp(BoxLayout):
         header.add_widget(lbl_sub)
         root.add_widget(header)
 
-        # --- KARTU 1: UPLOAD FILE ---
+        # --- KARTU 1: UPLOAD FILE & TEMPLATE ---
         card_upload = RoundedCard(orientation="vertical", padding=dp(14), spacing=dp(10),
-                                  size_hint_y=None, height=dp(112))
+                                  size_hint_y=None, height=dp(160))
+        
+        row_btns = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(44))
         self.btn_upload = ModernButton(
-            text="📂  Unggah File Jadwal (.xlsx / .csv)",
-            bg=ACCENT_BLUE, size_hint_y=None, height=dp(46), font_size=dp(15)
+            text="📂 Unggah Jadwal",
+            bg=ACCENT_BLUE, size_hint_x=0.6, font_size=dp(14)
         )
         self.btn_upload.bind(on_press=self.open_picker)
-        card_upload.add_widget(self.btn_upload)
+        
+        self.btn_template = ModernButton(
+            text="⬇️ Unduh Template",
+            bg=ACCENT_CYAN, size_hint_x=0.4, font_size=dp(13)
+        )
+        self.btn_template.bind(on_press=self.download_template)
+        
+        row_btns.add_widget(self.btn_upload)
+        row_btns.add_widget(self.btn_template)
+        card_upload.add_widget(row_btns)
+
+        # Spinner Pengaturan Tema (Poin 4)
+        row_theme = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(36))
+        lbl_theme = Label(text="Tema Warna:", color=TEXT_MUTED, font_size=dp(12),
+                          size_hint_x=None, width=dp(90), halign="left", valign="middle")
+        lbl_theme.bind(size=lambda *_: setattr(lbl_theme, "text_size", lbl_theme.size))
+        
+        self.spinner_theme = Spinner(
+            text="Slate Dark",
+            values=list(THEMES.keys()),
+            background_normal="",
+            background_color=CARD_BORDER,
+            color=TEXT_PRIMARY,
+            font_size=dp(12)
+        )
+        self.spinner_theme.bind(text=self.change_theme)
+        row_theme.add_widget(lbl_theme)
+        row_theme.add_widget(self.spinner_theme)
+        card_upload.add_widget(row_theme)
 
         self.lbl_status = Label(
             text="Belum ada file jadwal yang dimuat.",
-            font_size=dp(12.5), color=TEXT_MUTED, halign="left", valign="middle",
-            size_hint_y=None, height=dp(28)
+            font_size=dp(12), color=TEXT_MUTED, halign="left", valign="middle",
+            size_hint_y=None, height=dp(26)
         )
         self.lbl_status.bind(size=lambda *_: setattr(self.lbl_status, "text_size", self.lbl_status.size))
         card_upload.add_widget(self.lbl_status)
@@ -247,13 +307,36 @@ class ShiftApp(BoxLayout):
         scroll.add_widget(root)
         self.add_widget(scroll)
 
+    def change_theme(self, _, theme_name):
+        global BG_DARK, CARD_BG, CARD_BORDER, ACCENT_BLUE
+        if theme_name in THEMES:
+            t = THEMES[theme_name]
+            BG_DARK = t["BG_DARK"]
+            CARD_BG = t["CARD_BG"]
+            CARD_BORDER = t["CARD_BORDER"]
+            ACCENT_BLUE = t["ACCENT_BLUE"]
+            Window.clearcolor = BG_DARK
+            self._set_status(f"Tema diubah ke {theme_name}")
+
+    def download_template(self, *_):
+        import shutil
+        src = "template_jadwal_shift.xlsx"
+        dst = os.path.join(App.get_running_app().user_data_dir, "template_jadwal_shift.xlsx")
+        try:
+            if os.path.exists(src):
+                shutil.copy(src, dst)
+                self._set_status(f"✓ Template tersimpan di: {dst}")
+            else:
+                self._set_status("File template belum tersedia di direktori.")
+        except Exception as e:
+            self._set_status(f"Gagal mengunduh template: {e}")
+
     def _row(self, texts, bg, fg, bold=False):
         row = BoxLayout(spacing=dp(3))
         for t, w in zip(texts, COL_WEIGHTS):
             row.add_widget(Cell(t, bg, fg, bold=bold, size_hint_x=w))
         return row
 
-    # ---------- memilih file ----------
     def open_picker(self, *_):
         if platform == "android":
             self._open_android_picker()
@@ -297,10 +380,10 @@ class ShiftApp(BoxLayout):
             return
         Clock.schedule_once(lambda dt: self.load_file(path))
 
-    # ---------- memproses jadwal ----------
     def load_file(self, path):
         try:
-            month_key, new_days = sl.load_days(path)
+            # Memanggil logika dengan parameter fleksibel (Poin 2 & 3)
+            month_key, new_days = sl.load_days(path, self.off_words, self.cuti_words)
         except sl.ScheduleError as exc:
             self._set_status(str(exc))
             return
@@ -316,7 +399,8 @@ class ShiftApp(BoxLayout):
         self.refresh()
 
     def _rebuild(self):
-        self.entries = sl.build_entries(self.days)
+        # Menerapkan aturan durasi fleksibel (Poin 2)
+        self.entries = sl.build_entries(self.days, self.dur_full, self.dur_short)
         names = []
         seen = set()
         for e in self.entries:
@@ -336,12 +420,10 @@ class ShiftApp(BoxLayout):
         self.lbl_today.text = now.strftime("%d-%b")
         self.lbl_clock.text = now.strftime("%H:%M")
 
-        # Update tabel Widget 1 (Tim)
         duty, nxt = sl.compute(self.entries, now)
         self._fill(self.duty_cells, "Duty:", duty)
         self._fill(self.next_cells, "Next:", nxt)
 
-        # Update pratinjau Widget 2 (Personal)
         selected = self.spinner_name.text
         self._next_personal_start = None
         self._next_personal_name = selected
@@ -415,7 +497,6 @@ class ShiftApp(BoxLayout):
     def _set_status(self, text):
         self.lbl_status.text = text
 
-    # ---------- penyimpanan & widget ----------
     def _store_path(self):
         return os.path.join(App.get_running_app().user_data_dir, "days.txt")
 
