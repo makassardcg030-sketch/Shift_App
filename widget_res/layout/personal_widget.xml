@@ -7,11 +7,11 @@
         <TextClock android:layout_width="wrap_content" android:layout_height="wrap_content" android:format12Hour="dd MMM • HH:mm" android:format24Hour="dd MMM • HH:mm" android:textColor="#FACC15" android:textSize="12sp" android:textStyle="bold"/>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="2dp" android:paddingLeft="10dp" android:paddingRight="10dp" android:gravity="center_vertical" android:background="#2563EB" android:orientation="horizontal">
-        <TextView android:layout_width="64dp" android:layout_height="wrap_content" android:text="Bertugas:" android:textColor="#DBEAFE" android:textSize="12sp" android:textStyle="bold"/>
+        <TextView android:layout_width="64dp" android:layout_height="wrap_content" android:text="Duty:" android:textColor="#DBEAFE" android:textSize="12sp" android:textStyle="bold"/>
         <TextView android:id="@+id/pwidget_duty" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Sedang Libur" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:singleLine="true"/>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.15" android:layout_marginTop="4dp" android:paddingLeft="10dp" android:paddingRight="4dp" android:gravity="center_vertical" android:background="#FACC15" android:orientation="horizontal">
-        <TextView android:layout_width="72dp" android:layout_height="wrap_content" android:text="Berikutnya:" android:textColor="#713F12" android:textSize="12sp" android:textStyle="bold"/>
+        <TextView android:layout_width="72dp" android:layout_height="wrap_content" android:text="Next:" android:textColor="#713F12" android:textSize="12sp" android:textStyle="bold"/>
         <TextView android:id="@+id/pwidget_next" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="-" android:textColor="#0F172A" android:textSize="12sp" android:textStyle="bold" android:singleLine="true"/>
         <Button android:id="@+id/pwidget_btn_alarm" android:layout_width="wrap_content" android:layout_height="32dp" android:minWidth="0dp" android:paddingLeft="10dp" android:paddingRight="10dp" android:text="⏰ Alarm -1 jam" android:textAllCaps="false" android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFF" android:background="#DC2626"/>
     </LinearLayout>
