@@ -1,4 +1,4 @@
-name: Build Android AAB Release
+name: Build Shift App Release
 
 on:
   push:
