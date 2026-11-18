@@ -75,6 +75,8 @@ class RoundedCard(BoxLayout):
     def _sync(self, *_):
         self._rect.pos = self.pos
         self._rect.size = self.size
+    def set_bg(self, bg):
+        self._bg = bg; self._color.rgba = bg
 
 
 class ModernButton(Button):
@@ -97,6 +99,8 @@ class ModernButton(Button):
         self._r.pos = self.pos
         self._r.size = self.size
 
+    def set_bg(self, bg):
+        self._bg = bg; self._c.rgba = bg
     def _on_state(self, _, state):
         if state == "down":
             self._c.rgba = (self._bg[0] * 0.8, self._bg[1] * 0.8, self._bg[2] * 0.8, 1)
@@ -173,6 +177,7 @@ class ShiftApp(BoxLayout):
             text="📂 Unggah Jadwal",
             bg=ACCENT_BLUE, size_hint_x=0.6, font_size=dp(14)
         )
+        self._buttons.append(self.btn_upload)
         self.btn_upload.bind(on_press=self.open_picker)
         
         self.btn_template = ModernButton(
@@ -216,6 +221,7 @@ class ShiftApp(BoxLayout):
         # --- KARTU 2: PRATINJAU WIDGET 1 (TIM) ---
         card_team = RoundedCard(orientation="vertical", padding=dp(14), spacing=dp(8),
                                 size_hint_y=None, height=dp(215))
+        self._cards.append(card_team)
         lbl_w1 = Label(
             text="[b]Widget 1 • Jadwal Shift Tim[/b]  [color=#94A3B8](Tanpa Alarm)[/color]",
             markup=True, font_size=dp(14), color=TEXT_PRIMARY,
@@ -230,10 +236,10 @@ class ShiftApp(BoxLayout):
         self.lbl_clock = Cell("", WHITE, ACCENT_RED, bold=True, size_hint_x=1.0)
         top.add_widget(Cell("HARI INI", WHITE, BLACK, bold=True, size_hint_x=0.8))
         top.add_widget(self.lbl_today)
-        top.add_widget(Cell("Time", WHITE, BLACK, bold=True, size_hint_x=0.6))
+        top.add_widget(Cell("Jam", WHITE, BLACK, bold=True, size_hint_x=0.6))
         top.add_widget(self.lbl_clock)
         self.table.add_widget(top)
-        self.table.add_widget(self._row(("SHIFT", "Name", "Time", "Name", "Time"), ACCENT_RED, WHITE, True))
+        self.table.add_widget(self._row(("SHIFT", "Nama", "Jam", "Nama", "Jam"), ACCENT_RED, WHITE, True))
         self.duty_cells = self._row(("Duty:", "-", "", "", ""), ACCENT_CYAN, WHITE, True)
         self.next_cells = self._row(("Next:", "-", "", "", ""), ACCENT_YELLOW, BLACK, True)
         self.table.add_widget(self.duty_cells)
@@ -244,6 +250,7 @@ class ShiftApp(BoxLayout):
         # --- KARTU 3: PRATINJAU WIDGET 2 (PERSONAL + ALARM) ---
         card_personal = RoundedCard(orientation="vertical", padding=dp(14), spacing=dp(10),
                                     size_hint_y=None, height=dp(230))
+        self._cards.append(card_personal)
         lbl_w2 = Label(
             text="[b]Widget 2 • Jadwal Personal & Alarm[/b]",
             markup=True, font_size=dp(14), color=TEXT_PRIMARY,
@@ -288,12 +295,14 @@ class ShiftApp(BoxLayout):
             text="⏰  Set Alarm 1 Jam Sebelum Shift",
             bg=ACCENT_RED, size_hint_y=None, height=dp(42), font_size=dp(13.5)
         )
+        self._buttons.append(self.btn_test_alarm)
         self.btn_test_alarm.bind(on_press=self.trigger_personal_alarm)
         card_personal.add_widget(self.btn_test_alarm)
         root.add_widget(card_personal)
 
         # --- KARTU 4: PANDUAN SINGKAT ---
         card_info = RoundedCard(orientation="vertical", padding=dp(14), size_hint_y=None, height=dp(96))
+        self._cards.append(card_info)
         lbl_guide = Label(
             text="[b]Cara Pasang Widget di Layar Utama:[/b]\n"
                  "• Tahan area kosong layar utama > pilih [b]Widget[/b] > [b]Jadwal Shift App[/b].\n"
@@ -440,7 +449,7 @@ class ShiftApp(BoxLayout):
         selected = self.spinner_name.text
         self._next_personal_start = None
         self._next_personal_name = selected
-        active_str = "Sedang Off / Libur"
+        active_str = "Sedang Libur"
         next_str = "Tidak ada jadwal"
         next_dt = None
 
@@ -473,8 +482,8 @@ class ShiftApp(BoxLayout):
             return
         alarm_dt = self._next_personal_start - timedelta(hours=1)
         if platform != "android":
-            self._set_status("Simulasi PC: Alarm disetel pukul %s untuk %s" % (
-                alarm_dt.strftime("%H:%M"), self._next_personal_name))
+            msg = "Simulasi PC: Alarm disetel pukul %s untuk %s" % (alarm_dt.strftime("%H:%M"), self._next_personal_name)
+            self._set_status("✓ " + msg); self._show_popup("Alarm Berhasil Disetel", f"⏰ Alarm untuk {self._next_personal_name}\nPukul {alarm_dt.strftime('%H:%M')} (1 jam sebelum shift {self._next_personal_start.strftime('%H:%M')})")
             return
         try:
             from jnius import autoclass
@@ -492,6 +501,7 @@ class ShiftApp(BoxLayout):
             intent.putExtra(AlarmClock.EXTRA_SKIP_UI, True)
             PythonActivity.mActivity.startActivity(intent)
             self._set_status("✓ Alarm disetel pukul %s (1 jam sebelum shift)" % alarm_dt.strftime("%H:%M"))
+            self._show_popup("Alarm Berhasil Disetel", f"⏰ Alarm untuk {self._next_personal_name}\nPukul {alarm_dt.strftime('%H:%M')} (1 jam sebelum shift {self._next_personal_start.strftime('%H:%M')})")
         except Exception as exc:
             self._set_status("Gagal menyetel alarm: %s" % exc)
 
@@ -527,6 +537,8 @@ class ShiftApp(BoxLayout):
         except OSError:
             self.days = []
         self._rebuild()
+        try: self.change_theme(None, self.current_theme_name)
+        except Exception: pass
         if self.days:
             self._set_status("✓ Jadwal tersimpan dimuat (%d orang)" % len({d[1] for d in self.days}))
         self.refresh()
@@ -539,6 +551,8 @@ class ShiftApp(BoxLayout):
             PythonActivity = autoclass("org.kivy.android.PythonActivity")
             Provider = autoclass(PKG + ".ShiftWidgetProvider")
             ctx = PythonActivity.mActivity
+            WidgetTheme = autoclass(PKG + ".WidgetTheme")
+            WidgetTheme.saveTheme(ctx, self.current_theme_name)
             Provider.saveSchedule(ctx, sl.entries_to_text(self.entries))
             Provider.updateAll(ctx)
         except Exception as exc:
