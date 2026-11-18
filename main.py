@@ -320,16 +320,26 @@ class ShiftApp(BoxLayout):
 
     def download_template(self, *_):
         import shutil
-        src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template_jadwal_shift.xlsx")
-        dst = os.path.join(App.get_running_app().user_data_dir, "template_jadwal_shift.xlsx")
+        name = "template_jadwal_shift.xlsx"
+        src = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+        if not os.path.exists(src):
+            self._set_status("File template belum tersedia di aplikasi.")
+            return
         try:
-            if os.path.exists(src):
-                shutil.copy(src, dst)
-                self._set_status(f"✓ Template tersimpan di: {dst}")
+            if platform == "android":
+                from jnius import autoclass
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                FileHelper = autoclass(PKG + ".FileHelper")
+                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                where = FileHelper.saveToDownloads(PythonActivity.mActivity, src, name, mime)
             else:
-                self._set_status("File template belum tersedia di direktori.")
+                dl = os.path.join(os.path.expanduser("~"), "Downloads")
+                os.makedirs(dl, exist_ok=True)
+                where = os.path.join(dl, name)
+                shutil.copy(src, where)
+            self._set_status("✓ Template tersimpan di %s" % where)
         except Exception as e:
-            self._set_status(f"Gagal mengunduh template: {e}")
+            self._set_status("Gagal menyimpan template: %s" % e)
 
     def _row(self, texts, bg, fg, bold=False):
         row = BoxLayout(spacing=dp(3))
