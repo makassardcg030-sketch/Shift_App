@@ -163,9 +163,26 @@ def parse_grid(rows):
     return "%04d-%02d" % (year, month), days
 
 
-def load_days(path):
+def _sniff_kind(path):
+    """Tentukan 'xlsx' / 'csv' dari ekstensi, atau dari isi file bila ekstensi hilang
+    (Google Drive / WhatsApp / Downloads kadang memberi nama tanpa .xlsx)."""
     lower = path.lower()
+    if lower.endswith(".xlsx") or lower.endswith(".xlsm"):
+        return "xlsx"
     if lower.endswith(".csv"):
+        return "csv"
+    with open(path, "rb") as f:
+        head = f.read(4)
+    if head[:2] == b"PK":
+        return "xlsx"
+    if head[:4] == b"\xd0\xcf\x11\xe0":
+        raise ScheduleError("File .xls (format lama) tidak didukung. Simpan ulang sebagai .xlsx.")
+    return "csv"
+
+
+def load_days(path):
+    kind = _sniff_kind(path)
+    if kind == "csv":
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             sample = f.read(4096)
             f.seek(0)
@@ -174,14 +191,16 @@ def load_days(path):
             except csv.Error:
                 dialect = csv.excel
             return parse_grid(list(csv.reader(f, dialect)))
-    if lower.endswith(".xlsx"):
-        from openpyxl import load_workbook
-        wb = load_workbook(path, read_only=True, data_only=True)
+    from openpyxl import load_workbook
+    # read_only=False: lebih toleran terhadap xlsx hasil ekspor Google Sheets/Mac
+    # (dimensi sheet / drawing yang tidak standar).
+    # Dibuka lewat objek file: openpyxl menolak path yang tidak berakhiran .xlsx.
+    with open(path, "rb") as fh:
+        wb = load_workbook(fh, data_only=True)
         try:
             return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)))
         finally:
             wb.close()
-    raise ScheduleError("Format file tidak didukung. Gunakan .xlsx atau .csv.")
 
 
 # ------------------------------------------------------- penyimpanan & gabungan
