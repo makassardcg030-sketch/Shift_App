@@ -278,14 +278,14 @@ class ShiftApp(BoxLayout):
         card_personal.add_widget(row_select)
 
         self.lbl_p_duty = Label(
-            text="Bertugas: -", color=TEXT_PRIMARY, font_size=dp(13.5),
+            text="Duty: -", color=TEXT_PRIMARY, font_size=dp(13.5),
             size_hint_y=None, height=dp(26), halign="left", valign="middle"
         )
         self.lbl_p_duty.bind(size=lambda *_: setattr(self.lbl_p_duty, "text_size", self.lbl_p_duty.size))
         card_personal.add_widget(self.lbl_p_duty)
 
         self.lbl_p_next = Label(
-            text="Berikutnya: -", color=ACCENT_YELLOW, bold=True, font_size=dp(13.5),
+            text="Next: -", color=ACCENT_YELLOW, bold=True, font_size=dp(13.5),
             size_hint_y=None, height=dp(26), halign="left", valign="middle"
         )
         self.lbl_p_next.bind(size=lambda *_: setattr(self.lbl_p_next, "text_size", self.lbl_p_next.size))
@@ -502,8 +502,8 @@ class ShiftApp(BoxLayout):
         self.lbl_clock.text = now.strftime("%H:%M")
 
         duty, nxt = sl.compute(self.entries, now)
-        self._fill(self.duty_cells, "Bertugas:", duty)
-        self._fill(self.next_cells, "Berikutnya:", nxt)
+        self._fill(self.duty_cells, "Duty:", duty)
+        self._fill(self.next_cells, "Next:", nxt)
 
         selected = self.spinner_name.text
         self._next_personal_start = None
@@ -523,7 +523,7 @@ class ShiftApp(BoxLayout):
                 if next_dt is None or start_dt < next_dt:
                     next_dt = start_dt
 
-        self.lbl_p_duty.text = "Bertugas:  " + active_str
+        self.lbl_p_duty.text = "Duty:  " + active_str
         if next_dt is not None:
             self._next_personal_start = next_dt
             alarm_dt = next_dt - timedelta(hours=1)
@@ -533,7 +533,7 @@ class ShiftApp(BoxLayout):
         else:
             self.btn_test_alarm.text = "⏰  Tidak Ada Jadwal Berikutnya"
 
-        self.lbl_p_next.text = "Berikutnya:  " + next_str
+        self.lbl_p_next.text = "Next:  " + next_str
 
     def trigger_personal_alarm(self, *_):
         if self._next_personal_start is None:
