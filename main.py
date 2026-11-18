@@ -134,6 +134,9 @@ class ShiftApp(BoxLayout):
         self.orientation = "vertical"
         self.entries = []
         self.days = []
+        self._buttons = []
+        self._cards = []
+        self.current_theme_name = "Slate Dark"
         self._next_personal_start = None
         self._next_personal_name = ""
 
