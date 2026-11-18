@@ -21,28 +21,39 @@ PICK_REQUEST = 4711
 PKG = "org.shiftapp.shiftapp"
 
 # Pilihan Palet Tema Warna UI (Fleksibel / Poin 4)
-import json as _json
-# FIX #1 & #3 - Tema sekarang PALET LENGKAP + disimpan, bukan cuma 4 warna global.
-# Dulu: change_theme() hanya ubah 4 variabel global, tapi RoundedCard/ModernButton
-# sudah mengunci warna di canvas saat __init__, jadi tidak ada perubahan visual.
 THEMES = {
-    "Slate Dark": {"BG": (0.06,0.09,0.16,1), "CARD": (0.12,0.16,0.23,1), "BORDER": (0.20,0.25,0.33,1), "ACCENT": (0.15,0.39,0.92,1), "CYAN": (0.02,0.52,0.78,1), "TEXT": (0.97,0.98,0.99,1), "MUTED": (0.58,0.64,0.72,1)},
-    "Midnight Blue": {"BG": (0.04,0.06,0.12,1), "CARD": (0.09,0.13,0.22,1), "BORDER": (0.16,0.22,0.35,1), "ACCENT": (0.20,0.50,0.95,1), "CYAN": (0.03,0.60,0.85,1), "TEXT": (0.97,0.98,0.99,1), "MUTED": (0.60,0.66,0.74,1)},
-    "Emerald Dark": {"BG": (0.05,0.09,0.07,1), "CARD": (0.10,0.18,0.14,1), "BORDER": (0.18,0.30,0.24,1), "ACCENT": (0.06,0.55,0.35,1), "CYAN": (0.05,0.65,0.55,1), "TEXT": (0.96,0.98,0.96,1), "MUTED": (0.60,0.68,0.62,1)},
-    "Terang": {"BG": (0.95,0.96,0.98,1), "CARD": (1,1,1,1), "BORDER": (0.85,0.87,0.90,1), "ACCENT": (0.15,0.39,0.92,1), "CYAN": (0.02,0.52,0.78,1), "TEXT": (0.06,0.09,0.16,1), "MUTED": (0.40,0.44,0.52,1)},
+    "Slate Dark": {
+        "BG_DARK": (0.06, 0.09, 0.16, 1),       # #0F172A Slate 900
+        "CARD_BG": (0.12, 0.16, 0.23, 1),       # #1E293B Slate 800
+        "CARD_BORDER": (0.20, 0.25, 0.33, 1),   # #334155 Slate 700
+        "ACCENT_BLUE": (0.15, 0.39, 0.92, 1),   # #2563EB Royal Blue
+    },
+    "Midnight Blue": {
+        "BG_DARK": (0.04, 0.06, 0.12, 1),
+        "CARD_BG": (0.09, 0.13, 0.22, 1),
+        "CARD_BORDER": (0.16, 0.22, 0.35, 1),
+        "ACCENT_BLUE": (0.20, 0.50, 0.95, 1),
+    },
+    "Emerald Dark": {
+        "BG_DARK": (0.05, 0.09, 0.07, 1),
+        "CARD_BG": (0.10, 0.18, 0.14, 1),
+        "CARD_BORDER": (0.18, 0.30, 0.24, 1),
+        "ACCENT_BLUE": (0.06, 0.55, 0.35, 1),
+    }
 }
-# FIX #4 - Definisi shift DINAMIS, bukan lagi hanya C dan OFF.
-# Default cocok dengan Excel lamamu (angka jam). User bisa tambah P/S/M di Pengaturan.
-# Format: kode -> [jam_mulai, durasi] atau None = tidak kerja
-DEFAULT_SHIFT_DEFS = {"P1": [[6,8]], "P2": [[6,5]], "P3": [[7,8]], "P4": [[8,8]], "S1": [[11,8]], "S2": [[14,8]], "M1": [[22,8]], "C": None, "OFF": None, "LIBUR": None}
 
+# Default Active Theme
+CURRENT_THEME = THEMES["Slate Dark"]
+BG_DARK = CURRENT_THEME["BG_DARK"]
+CARD_BG = CURRENT_THEME["CARD_BG"]
+CARD_BORDER = CURRENT_THEME["CARD_BORDER"]
+ACCENT_BLUE = CURRENT_THEME["ACCENT_BLUE"]
 
-def _theme(name):
-    d = THEMES.get(name, THEMES["Slate Dark"])
-    return d["BG"], d["CARD"], d["BORDER"], d["ACCENT"], d["CYAN"], d["TEXT"], d["MUTED"]
-BG_DARK, CARD_BG, CARD_BORDER, ACCENT_BLUE, ACCENT_CYAN, TEXT_PRIMARY, TEXT_MUTED = _theme("Slate Dark")
-ACCENT_RED = (0.86, 0.15, 0.15, 1)
-ACCENT_YELLOW = (0.98, 0.80, 0.08, 1)
+ACCENT_CYAN = (0.02, 0.52, 0.78, 1)   # #0284C7 Sky 600
+ACCENT_RED = (0.86, 0.15, 0.15, 1)    # #DC2626 Red 600
+ACCENT_YELLOW = (0.98, 0.80, 0.08, 1) # #FACC15 Yellow 400
+TEXT_PRIMARY = (0.97, 0.98, 0.99, 1)
+TEXT_MUTED = (0.58, 0.64, 0.72, 1)
 WHITE = (1, 1, 1, 1)
 BLACK = (0.06, 0.09, 0.16, 1)
 
@@ -126,15 +137,11 @@ class ShiftApp(BoxLayout):
         self._next_personal_start = None
         self._next_personal_name = ""
 
-        # FIX #4: Pengaturan dinamis, dimuat dari settings.json (tersimpan)
-        self.settings = self._load_settings()
-        self.dur_full = self.settings.get("dur_full", 8)
-        self.dur_short = self.settings.get("dur_short", 5)
-        self.off_words = tuple(self.settings.get("off_words", ["OFF","LIBUR"]))
-        self.cuti_words = tuple(self.settings.get("cuti_words", ["C","CUTI","IZIN","SAKIT"]))
-        self.shift_defs = self._normalize_defs(self.settings.get("shift_defs", DEFAULT_SHIFT_DEFS))
-        self.current_theme_name = self.settings.get("theme", "Slate Dark")
-        self._cards = []; self._buttons = []
+        # Konfigurasi Fleksibel (Poin 2 & 3)
+        self.dur_full = 8
+        self.dur_short = 5
+        self.off_words = ("OFF", "LIBUR")
+        self.cuti_words = ("C", "CUTI", "IZIN", "SAKIT")
 
         scroll = ScrollView(do_scroll_x=False)
         root = BoxLayout(
@@ -163,8 +170,7 @@ class ShiftApp(BoxLayout):
 
         # --- KARTU 1: UPLOAD FILE & TEMPLATE ---
         card_upload = RoundedCard(orientation="vertical", padding=dp(14), spacing=dp(10),
-                                  size_hint_y=None, height=dp(210))
-        self._cards.append(card_upload)
+                                  size_hint_y=None, height=dp(160))
         
         row_btns = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(44))
         self.btn_upload = ModernButton(
@@ -178,7 +184,6 @@ class ShiftApp(BoxLayout):
             text="⬇️ Unduh Template",
             bg=ACCENT_CYAN, size_hint_x=0.4, font_size=dp(13)
         )
-        self._buttons.append(self.btn_template)
         self.btn_template.bind(on_press=self.download_template)
         
         row_btns.add_widget(self.btn_upload)
@@ -199,15 +204,10 @@ class ShiftApp(BoxLayout):
             color=TEXT_PRIMARY,
             font_size=dp(12)
         )
-        self.spinner_theme.text = self.current_theme_name
         self.spinner_theme.bind(text=self.change_theme)
         row_theme.add_widget(lbl_theme)
         row_theme.add_widget(self.spinner_theme)
         card_upload.add_widget(row_theme)
-        self.btn_settings = ModernButton(text="⚙️  Pengaturan Shift (P/S/M, C, OFF)", bg=ACCENT_CYAN, size_hint_y=None, height=dp(40), font_size=dp(13))
-        self.btn_settings.bind(on_press=self.open_settings)
-        self._buttons.append(self.btn_settings)
-        card_upload.add_widget(self.btn_settings)
 
         self.lbl_status = Label(
             text="Belum ada file jadwal yang dimuat.",
@@ -316,75 +316,16 @@ class ShiftApp(BoxLayout):
         scroll.add_widget(root)
         self.add_widget(scroll)
 
-    def _settings_path(self):
-        try: return os.path.join(App.get_running_app().user_data_dir, "settings.json")
-        except Exception: return os.path.join(os.path.expanduser("~"), "shift_settings.json")
-    def _load_settings(self):
-        try:
-            with open(self._settings_path(), encoding="utf-8") as f: return _json.load(f)
-        except Exception: return {}
-    def _save_settings(self):
-        try:
-            with open(self._settings_path(), "w", encoding="utf-8") as f: _json.dump(self.settings, f, ensure_ascii=False, indent=2)
-        except Exception: pass
-    @staticmethod
-    def _normalize_defs(raw):
-        out = {}
-        for k, v in (raw or {}).items():
-            if v is None: out[str(k).upper()] = None
-            else:
-                vv = sl._as_variants(v)
-                if vv: out[str(k).upper()] = [list(x) for x in vv]
-        return out
     def change_theme(self, _, theme_name):
-        # FIX #1: dulu hanya ubah variabel global -> widget lama tidak berubah.
-        # Sekarang: ubah Window + SEMUA kartu/tombol yang sudah ada + simpan pilihan.
-        global BG_DARK, CARD_BG, CARD_BORDER, ACCENT_BLUE, ACCENT_CYAN, TEXT_PRIMARY, TEXT_MUTED
-        if theme_name not in THEMES: return
-        self.current_theme_name = theme_name
-        BG_DARK, CARD_BG, CARD_BORDER, ACCENT_BLUE, ACCENT_CYAN, TEXT_PRIMARY, TEXT_MUTED = _theme(theme_name)
-        Window.clearcolor = BG_DARK
-        for c in getattr(self, "_cards", []): c.set_bg(CARD_BG)
-        # Tombol utama ikut tema (kecuali tombol alarm merah)
-        for b in getattr(self, "_buttons", []):
-            if b is not getattr(self, "btn_test_alarm", None): b.set_bg(ACCENT_BLUE)
-        self.settings["theme"] = theme_name; self._save_settings()
-        try: self._push_to_widget()
-        except Exception: pass
-        self._set_status(f"Tema diubah ke {theme_name} ✓")
-    def open_settings(self, *_):
-        # FIX #4: Popup pengaturan dinamis. Format per baris: KODE=JAM,DURASI  atau KODE=LIBUR
-        # Contoh: P=6,8  |  S=14,8  |  M=22,8  |  C=LIBUR  |  OFF=LIBUR
-        from kivy.uix.textinput import TextInput
-        lines = []
-        for k, v in self.shift_defs.items():
-            if v is None:
-                lines.append(f"{k}={'CUTI' if k=='C' else ('OFF' if k=='OFF' else 'LIBUR')}")
-            else:
-                for (hh, dd) in v: lines.append(f"{k}={hh},{dd}")
-        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(10))
-        lbl = Label(text="Satu kode per baris. Kode: P1,P2.. S1,S2.. M1,M2.. C OFF LIBUR.\nContoh: P1=6,8  P2=6,5  P3=7,8  P4=8,8  S1=11,8  S2=14,8  M1=22,8\nC=CUTI  OFF=OFF  LIBUR=LIBUR\nATURAN: di antara 2 OFF ada 5 hari kerja -> hari terakhir jadi 5 jam.\nKalau 6 hari kerja -> hari terakhir tetap 8 jam.\nDi Excel isi KODE (P1/S1/M1), bukan angka.", font_size=dp(12), color=TEXT_PRIMARY, halign="left", valign="top", size_hint_y=None, height=dp(110))
-        lbl.bind(size=lambda *_: setattr(lbl, "text_size", lbl.size))
-        ti = TextInput(text="\n".join(lines), multiline=True, font_size=dp(13))
-        row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(44))
-        btn_ok = ModernButton(text="Simpan", bg=ACCENT_BLUE)
-        btn_batal = ModernButton(text="Batal", bg=ACCENT_RED)
-        row.add_widget(btn_ok); row.add_widget(btn_batal)
-        content.add_widget(lbl); content.add_widget(ti); content.add_widget(row)
-        pop = Popup(title="Pengaturan Shift Dinamis", content=content, size_hint=(0.92, 0.7))
-        def _save(*_):
-            new = sl.parse_defs_text(ti.text)
-            if not new: self._set_status("Pengaturan tidak valid, dibatalkan."); pop.dismiss(); return
-            self.shift_defs = new; self.settings["shift_defs"]={k:([list(x) for x in v] if v else None) for k,v in new.items()}; self.shift_defs = self._normalize_defs(self.settings["shift_defs"]); self._save_settings()
-            self._rebuild(); self.refresh(); self._push_to_widget()
-            self._set_status("✓ Pengaturan shift disimpan: " + ", ".join(new.keys())); pop.dismiss()
-        btn_ok.bind(on_press=_save); btn_batal.bind(on_press=lambda *_: pop.dismiss())
-        pop.open()
-    def _show_popup(self, title, msg):
-        content = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(14))
-        content.add_widget(Label(text=msg, font_size=dp(14), color=TEXT_PRIMARY, halign="center", valign="middle"))
-        btn = ModernButton(text="OK", bg=ACCENT_BLUE, size_hint_y=None, height=dp(44)); content.add_widget(btn)
-        pop = Popup(title=title, content=content, size_hint=(0.85, 0.35)); btn.bind(on_press=lambda *_: pop.dismiss()); pop.open()
+        global BG_DARK, CARD_BG, CARD_BORDER, ACCENT_BLUE
+        if theme_name in THEMES:
+            t = THEMES[theme_name]
+            BG_DARK = t["BG_DARK"]
+            CARD_BG = t["CARD_BG"]
+            CARD_BORDER = t["CARD_BORDER"]
+            ACCENT_BLUE = t["ACCENT_BLUE"]
+            Window.clearcolor = BG_DARK
+            self._set_status(f"Tema diubah ke {theme_name}")
 
     def download_template(self, *_):
         import shutil
@@ -464,7 +405,7 @@ class ShiftApp(BoxLayout):
     def load_file(self, path):
         try:
             # Memanggil logika dengan parameter fleksibel (Poin 2 & 3)
-            month_key, new_days = sl.load_days(path, self.off_words, self.cuti_words, shift_defs=self.shift_defs)
+            month_key, new_days = sl.load_days(path, self.off_words, self.cuti_words)
         except sl.ScheduleError as exc:
             self._set_status(str(exc))
             return
@@ -481,7 +422,7 @@ class ShiftApp(BoxLayout):
 
     def _rebuild(self):
         # Menerapkan aturan durasi fleksibel (Poin 2)
-        self.entries = sl.build_entries(self.days, self.dur_full, self.dur_short, shift_defs=self.shift_defs)
+        self.entries = sl.build_entries(self.days, self.dur_full, self.dur_short)
         names = []
         seen = set()
         for e in self.entries:
