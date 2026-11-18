@@ -1,9 +1,15 @@
 package org.shiftapp.shiftapp;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import java.io.FileInputStream;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -54,5 +60,57 @@ public class FileHelper {
             in.close();
         }
         return out.getAbsolutePath();
+    }
+
+    /** Menyalin file dari folder aplikasi ke folder Download publik. Mengembalikan lokasi/nama tersimpan. */
+    public static String saveToDownloads(Context context, String srcPath, String displayName,
+                                         String mime) throws IOException {
+        InputStream in = new FileInputStream(new File(srcPath));
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                ContentResolver resolver = context.getContentResolver();
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, displayName);
+                values.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) {
+                    throw new IOException("Gagal membuat file di Download");
+                }
+                OutputStream os = resolver.openOutputStream(uri);
+                if (os == null) {
+                    throw new IOException("Gagal menulis ke Download");
+                }
+                try {
+                    copy(in, os);
+                } finally {
+                    os.close();
+                }
+                return "Download/" + displayName;
+            } else {
+                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+                File out = new File(dir, displayName);
+                OutputStream os = new FileOutputStream(out);
+                try {
+                    copy(in, os);
+                } finally {
+                    os.close();
+                }
+                return out.getAbsolutePath();
+            }
+        } finally {
+            in.close();
+        }
+    }
+
+    private static void copy(InputStream in, OutputStream os) throws IOException {
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) > 0) {
+            os.write(buf, 0, n);
+        }
     }
 }
