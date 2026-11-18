@@ -117,6 +117,16 @@ public class PersonalWidgetProvider extends AppWidgetProvider {
             return;
         }
         RemoteViews views = new RemoteViews(pkg, layoutId);
+        WidgetTheme.Palette th = WidgetTheme.load(context);
+        WidgetTheme.bg(views, context, "pwidget_root", th.bg);
+        WidgetTheme.fg(views, context, "pwidget_name", th.text);
+        WidgetTheme.fg(views, context, "p_time", th.nextBg);
+        WidgetTheme.bg(views, context, "p_duty_row", th.accent);
+        WidgetTheme.fg(views, context, "p_duty_label", th.onAccent);
+        WidgetTheme.fg(views, context, "pwidget_duty", th.onAccent);
+        WidgetTheme.bg(views, context, "p_next_row", th.nextBg);
+        WidgetTheme.fg(views, context, "p_next_label", th.nextText);
+        WidgetTheme.fg(views, context, "pwidget_next", th.nextText);
         String selectedName = getSelectedName(context, widgetId);
         String raw = prefs(context).getString(KEY_SCHEDULE, "");
         List<Entry> all = parse(raw);

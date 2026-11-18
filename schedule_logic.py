@@ -45,7 +45,43 @@ def _day_number(v):
         return int(f)
     return None
 
-def parse_code(v, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
+DEFAULT_SHIFT_DEFS = {"P": (6,8), "Q": (6,5), "R": (11,8), "S": (14,8), "M": (22,8), "C": None, "OFF": None, "LIBUR": None}  # None = tidak kerja
+# Format dinamis: {"P": (6,8), "S": (14,8), "M": (22,8), "C": None, "OFF": None}
+# Kalau user tidak definisikan, fallback ke angka jam di Excel + durasi full/short.
+
+def _as_variants(val):
+    if val is None: return None
+    if isinstance(val, (list, tuple)):
+        if len(val) == 2 and all(isinstance(x, (int, float)) for x in val):
+            return [(int(val[0]), int(val[1]))]
+        out = []
+        for item in val:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                out.append((int(item[0]), int(item[1])))
+        return out or None
+    return None
+
+LEGACY_ALIAS = {"P": "P1", "S": "S2", "M": "M1"}
+
+def parse_defs_text(text):
+    """Parse blok definisi. Satu kode = satu jam+durasi, tapi kode beda boleh banyak.
+    P1=6,8 / P2=6,5 / S1=11,8 / C=CUTI / OFF=OFF / LIBUR=LIBUR
+    Hasil: {"P1": [(6,8)], "C": None, "OFF": None, "LIBUR": None}"""
+    out = {}
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line or "=" not in line: continue
+        k, v = line.split("=", 1); k = k.strip().upper(); v = v.strip().upper()
+        if v in ("LIBUR", "OFF", "CUTI", "C", "-", "", "NONE", "NULL"):
+            out[k] = None; continue
+        try: h, d = v.split(","); h = int(h); d = int(d)
+        except Exception: continue
+        if not (0 <= h <= 23 and 1 <= d <= 24): continue
+        out[k] = [(h, d)]
+    return out
+
+def parse_code(v, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT"), shift_defs=None):
+    # shift_defs dipakai untuk mengenali kode huruf baru (Q, R, dst) - jangan dibuang jadi X.
     if v is None or isinstance(v, bool):
         return None
     if isinstance(v, dt.datetime):
@@ -66,9 +102,15 @@ def parse_code(v, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "
     m = re.fullmatch(r"(\d{1,2})(?:[:.]00)?", s)
     if m and int(m.group(1)) <= 23:
         return str(int(m.group(1)))
+    # Kode huruf (P/Q/R/S/M/dll) dipertahankan apa adanya.
+    # build_entries() yang memutuskan: kalau ada di shift_defs -> dipakai,
+    # kalau tidak ada -> dilewati. Jangan pernah jadi "X" lagi.
+    # Kode P1/S2/M1 (huruf + angka) dan P/S/M lama dipertahankan apa adanya.
+    if re.fullmatch(r"[A-Z]{1,3}", s) or re.fullmatch(r"[A-Z]{1,2}[0-9]{1,2}", s):
+        return s
     return "X"
 
-def parse_grid(rows, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
+def parse_grid(rows, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT"), shift_defs=None):
     rows = [list(r) for r in rows]
     if not rows:
         raise ScheduleError("File kosong.")
@@ -105,7 +147,7 @@ def parse_grid(rows, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN"
             continue
         got = False
         for ci, d in day_cols.items():
-            code = parse_code(row[ci] if ci < len(row) else None, off_words, cuti_words)
+            code = parse_code(row[ci] if ci < len(row) else None, off_words, cuti_words, shift_defs)
             if code is None:
                 continue
             try:
@@ -136,7 +178,7 @@ def _sniff_kind(path):
     return "csv"
 
 
-def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT")):
+def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN", "SAKIT"), shift_defs=None):
     if _sniff_kind(path) == "csv":
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             sample = f.read(4096)
@@ -145,14 +187,17 @@ def load_days(path, off_words=("OFF", "LIBUR"), cuti_words=("C", "CUTI", "IZIN",
                 dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
             except csv.Error:
                 dialect = csv.excel
-            return parse_grid(list(csv.reader(f, dialect)), off_words, cuti_words)
-    from openpyxl import load_workbook
+            return parse_grid(list(csv.reader(f, dialect)), off_words, cuti_words, shift_defs)
+    try:
+        from openpyxl import load_workbook
+    except ModuleNotFoundError:
+        raise ScheduleError("Modul 'openpyxl' belum terinstall di laptop ini. Cara perbaiki: tutup app, lalu jalankan 'python jalankan.py' (sudah auto-install) ATAU jalankan 'pip install openpyxl' di terminal, lalu buka lagi.")
     # Dibuka lewat objek file: openpyxl menolak path yang tidak berakhiran .xlsx.
     with open(path, "rb") as fh:
         wb = load_workbook(fh, data_only=True)
         try:
             return parse_grid(list(wb.worksheets[0].iter_rows(values_only=True)),
-                              off_words, cuti_words)
+                              off_words, cuti_words, shift_defs)
         finally:
             wb.close()
 
@@ -176,33 +221,81 @@ def text_to_days(text):
             out.append((p[0], p[1], p[2]))
     return out
 
-def build_entries(days, dur_full=8, dur_short=5, exact_full_run=5):
-    order = {}
-    by_name = {}
+def build_entries(days, dur_full=8, dur_short=5, exact_full_run=5, shift_defs=None):
+    """shift_defs: kode -> None | (jam,dur) | [(jam,dur)].
+    Kode baru: P1,P2,... S1,S2,... M1,M2,... C, OFF, LIBUR. Semua jam+durasi bisa di-setting.
+    ATURAN BLOK (dari user, menggantikan aturan run lama yang salah):
+      - Cari BLOK kerja: hari-hari kerja berturut-turut yang DIAPIT 2 OFF
+        (OFF / LIBUR / C di kedua ujungnya).
+      - Blok 5 hari kerja -> hari TERAKHIR sebelum OFF dipaksa jadi 5 JAM.
+        4 hari sebelumnya tetap sesuai definisi kodenya (mis. 8 jam).
+      - Blok 6 hari kerja -> hari terakhir TETAP sesuai definisi (mis. 8 jam).
+      - Blok panjang lain (1-4, 7+) -> tidak ada override, pakai definisi kode.
+      - Blok yang tidak diapit 2 OFF (mis. terpotong awal/akhir bulan) -> tidak di-override,
+        karena tidak terbukti "di antara 2 OFF".
+    Contoh: OFF | P1 P1 P1 P1 P1 | OFF  -> 8,8,8,8,5
+            OFF | P1 P1 P1 P1 P1 P1 | OFF -> 8,8,8,8,8,8
+    """
+    raw = shift_defs or {}
+    defs = {}
+    for k, v in raw.items():
+        defs[str(k).upper()] = _as_variants(v)
+    # Alias lama -> kode baru (hanya kalau kode lama tidak didefinisikan sendiri)
+    for old, new_code in LEGACY_ALIAS.items():
+        if old not in defs and new_code in defs:
+            defs[old] = defs[new_code]
+    # Peta jam_mulai -> durasi (untuk sel ANGKA di Excel, mis. sel berisi 6)
+    start_map = {}
+    for code, variants in defs.items():
+        if variants:
+            for (h, d) in variants:
+                start_map.setdefault(h, []).append((code, d))
+    OFF_SET = ("OFF", "LIBUR", "C", "CUTI", "IZIN", "SAKIT")
+    order = {}; by_name = {}
     for date_iso, name, code in days:
         order.setdefault(name, len(order))
         by_name.setdefault(name, {})[dt.date.fromisoformat(date_iso)] = code
-
     one = dt.timedelta(days=1)
     entries = []
+    entry_by_key = {}
     for name, m in by_name.items():
         for d, code in m.items():
-            if not code.isdigit():
+            if code in OFF_SET:
                 continue
-            dur = dur_full
-            if m.get(d + one) == "OFF":
-                run, cur = 0, d
-                while m.get(cur, "").isdigit():
-                    run += 1
-                    cur -= one
-                bounded = cur in m
-                if not (bounded and run == exact_full_run):
-                    dur = dur_short
-            entries.append({"date": d.isoformat(), "name": name,
-                            "hour": int(code), "dur": dur, "_o": order[name]})
-    entries.sort(key=lambda e: (e["date"], e["_o"]))
-    for e in entries:
-        del e["_o"]
+            hour = dur = None
+            if code in defs:
+                variants = defs[code]
+                if variants is None: continue
+                hour, dur = variants[0]  # satu kode = satu jam+durasi (tidak ada lagi duplikat P)
+            elif code.isdigit():
+                hour = int(code)
+                cands = start_map.get(hour, [])
+                if len(cands) == 1: dur = cands[0][1]
+                elif len(cands) > 1: dur = cands[0][1]  # angka ambigu -> varian pertama; pakai kode P1/S1 agar pasti
+                else: dur = dur_full
+            else:
+                continue  # kode tak dikenal -> lewati, jangan jadi X
+            e = {"date": d.isoformat(), "name": name, "hour": int(hour), "dur": int(dur), "_o": order[name]}
+            entries.append(e); entry_by_key[(name, d)] = e
+    # --- Terapkan ATURAN BLOK ---
+    for name, m in by_name.items():
+        dates = sorted(m.keys())
+        i = 0
+        while i < len(dates):
+            if m[dates[i]] in OFF_SET:
+                i += 1; continue
+            j = i
+            while j + 1 < len(dates) and dates[j+1] == dates[j] + one and m[dates[j+1]] not in OFF_SET:
+                j += 1
+            block = dates[i:j+1]
+            prev_off = (block[0] - one) in m and m[block[0] - one] in OFF_SET
+            next_off = (block[-1] + one) in m and m[block[-1] + one] in OFF_SET
+            if prev_off and next_off and len(block) == 5:
+                entry_by_key[(name, block[-1])]["dur"] = 5
+            # len == 6 -> sengaja TIDAK diubah, tetap 8 jam (atau sesuai definisi)
+            i = j + 1
+    entries.sort(key=lambda e: (e["date"], e["hour"], e["_o"]))
+    for e in entries: del e["_o"]
     return entries
 
 def entries_to_text(entries):
@@ -215,13 +308,13 @@ def _span(e):
 
 def compute(entries, now):
     spans = [(_span(e), e) for e in entries]
-    duty = [(e["name"], "%d+%d" % (e["hour"], e["dur"]))
-            for (s, en), e in spans if s <= now < en]
+    duty_entries = sorted([e for (s, en), e in spans if s <= now < en], key=lambda e: e["hour"])
+    duty = [(e["name"], "%d+%d" % (e["hour"], e["dur"])) for e in duty_entries]
     future = [s for (s, _), _e in spans if s > now]
     nxt = []
     if future:
         first = min(future)
         label = first.strftime("%H:%M") if first.date() == now.date() \
             else "%s %s" % (HARI[first.weekday()], first.strftime("%H:%M"))
-        nxt = [(e["name"], label) for (s, _), e in spans if s == first]
+        nxt = [(e["name"], label) for (s, _), e in sorted(spans, key=lambda x: x[1]["hour"]) if s == first]
     return duty, nxt

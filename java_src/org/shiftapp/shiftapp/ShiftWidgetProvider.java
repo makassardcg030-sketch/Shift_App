@@ -95,6 +95,18 @@ public class ShiftWidgetProvider extends AppWidgetProvider {
             return;
         }
         RemoteViews views = new RemoteViews(pkg, layoutId);
+        // TEMA WIDGET IKUT APLIKASI: baca tema yang disimpan Python, terapkan ke semua baris.
+        WidgetTheme.Palette th = WidgetTheme.load(context);
+        WidgetTheme.bg(views, context, "widget_root", th.bg);
+        WidgetTheme.bg(views, context, "w_header", th.card);
+        WidgetTheme.fg(views, context, "w_title", th.text);
+        WidgetTheme.fg(views, context, "w_date", th.nextBg);
+        WidgetTheme.fg(views, context, "w_time_label", th.muted);
+        WidgetTheme.fg(views, context, "w_time", th.text);
+        for (String id : new String[]{"w_h_shift","w_h_n1","w_h_t1","w_h_n2","w_h_t2"}) { WidgetTheme.bg(views, context, id, th.card); WidgetTheme.fg(views, context, id, th.text); }
+        for (String id : new String[]{"w_duty_label","duty_name1","duty_time1","duty_name2","duty_time2"}) { WidgetTheme.bg(views, context, id, th.accent); WidgetTheme.fg(views, context, id, th.onAccent); }
+        WidgetTheme.fg(views, context, "w_duty_label", th.accent2 == 0 ? th.onAccent : th.onAccent);
+        for (String id : new String[]{"w_next_label","next_name1","next_time1","next_name2","next_time2"}) { WidgetTheme.bg(views, context, id, th.nextBg); WidgetTheme.fg(views, context, id, th.nextText); }
 
         String raw = prefs(context).getString(KEY_SCHEDULE, "");
         String[] c = compute(parse(raw), System.currentTimeMillis());

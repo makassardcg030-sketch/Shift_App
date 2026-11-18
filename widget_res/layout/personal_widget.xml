@@ -1,116 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/pwidget_root"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:background="@drawable/widget_bg">
-
-    <!-- Baris 1: Header Nama Terpilih (ketuk untuk ganti nama) & Jam -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingBottom="4dp">
-
-        <TextView
-            android:id="@+id/pwidget_name"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Pilih Nama ▼"
-            android:textColor="#0F172A"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:singleLine="true" />
-
-        <TextClock
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:format12Hour="dd MMM • HH:mm"
-            android:format24Hour="dd MMM • HH:mm"
-            android:textColor="#2563EB"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+    android:id="@+id/pwidget_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="10dp" android:background="@drawable/widget_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="6dp">
+        <TextView android:id="@+id/pwidget_name" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Pilih Nama ▼" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" android:singleLine="true"/>
+        <TextClock android:layout_width="wrap_content" android:layout_height="wrap_content" android:format12Hour="dd MMM • HH:mm" android:format24Hour="dd MMM • HH:mm" android:textColor="#FACC15" android:textSize="12sp" android:textStyle="bold"/>
     </LinearLayout>
-
-    <!-- Baris 2: Duty Sekarang -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="2dp"
-        android:paddingLeft="8dp"
-        android:paddingRight="8dp"
-        android:gravity="center_vertical"
-        android:background="#0284C7"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="64dp"
-            android:layout_height="wrap_content"
-            android:text="Duty:"
-            android:textColor="#E0F2FE"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/pwidget_duty"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Tidak bertugas"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:singleLine="true" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="2dp" android:paddingLeft="10dp" android:paddingRight="10dp" android:gravity="center_vertical" android:background="#2563EB" android:orientation="horizontal">
+        <TextView android:layout_width="64dp" android:layout_height="wrap_content" android:text="Bertugas:" android:textColor="#DBEAFE" android:textSize="12sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/pwidget_duty" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Sedang Libur" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:singleLine="true"/>
     </LinearLayout>
-
-    <!-- Baris 3: Next Shift + Tombol Alarm 1 Jam Sebelumnya -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1.15"
-        android:layout_marginTop="3dp"
-        android:paddingLeft="8dp"
-        android:paddingRight="4dp"
-        android:gravity="center_vertical"
-        android:background="#FEF08A"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="46dp"
-            android:layout_height="wrap_content"
-            android:text="Next:"
-            android:textColor="#713F12"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/pwidget_next"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="-"
-            android:textColor="#0F172A"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:singleLine="true" />
-
-        <Button
-            android:id="@+id/pwidget_btn_alarm"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:minWidth="0dp"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:text="⏰ Alarm -1j"
-            android:textAllCaps="false"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:background="#DC2626" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.15" android:layout_marginTop="4dp" android:paddingLeft="10dp" android:paddingRight="4dp" android:gravity="center_vertical" android:background="#FACC15" android:orientation="horizontal">
+        <TextView android:layout_width="72dp" android:layout_height="wrap_content" android:text="Berikutnya:" android:textColor="#713F12" android:textSize="12sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/pwidget_next" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="-" android:textColor="#0F172A" android:textSize="12sp" android:textStyle="bold" android:singleLine="true"/>
+        <Button android:id="@+id/pwidget_btn_alarm" android:layout_width="wrap_content" android:layout_height="32dp" android:minWidth="0dp" android:paddingLeft="10dp" android:paddingRight="10dp" android:text="⏰ Alarm -1 jam" android:textAllCaps="false" android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFF" android:background="#DC2626"/>
     </LinearLayout>
 </LinearLayout>
