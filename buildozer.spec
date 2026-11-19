@@ -14,7 +14,7 @@ source.exclude_dirs = tests, tools, bin, venv, java_src, widget_res, .github, .g
 # Ikon aplikasi (simpan gambar logo sebagai icon.png di root folder)
 icon.filename = %(source.dir)s/icon.png
 
-version = 1.7
+version = 1.8
 
 requirements = python3,kivy,pyjnius,openpyxl,et_xmlfile
 
